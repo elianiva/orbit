@@ -13,7 +13,9 @@ The process of pushing vault contents from the local filesystem into Orbit's clo
 _Avoid_: upload, deploy, push
 
 
+**Artifact**:
 _Avoid_: output, result, generated file, separate table
+
 
 **Agent Namespace**:
 The `agent/` prefix in vault paths. All agent-written content lives under this boundary (e.g., `agent/teach/2024-06-15-patterns.mdx`). Auto-generated frontmatter includes `created_by: "orbit-mcp"` and `created_at`.
@@ -25,8 +27,8 @@ A quick publish — raw content (markdown or code) with optional language annota
 _Avoid_: post, snippet, note
 
 **Node**:
-A row in D1's vault tree — a file, folder, attachment, or agent-generated document. All content (manual or agent-authored) lives as first-class MDX nodes. Indexed with path, parent, frontmatter, tags, and R2 pointer.
-_Avoid_: entry, record, row, artifact record
+A row in D1 indexing a vault file — its path, title, frontmatter, tags, mime type, content preview, and R2 pointer. The vault tree is derived from path hierarchy, not parent references. All content (manual or agent-authored) lives as first-class nodes.
+_Avoid_: entry, record, row, artifact record, folder node
 
 
 ## Agent Interface
@@ -68,6 +70,28 @@ _Avoid_: custom file tree, recursive components
 **Opt-in Components**:
 React components are added individually per user direction, not scaffolded wholesale. Default to server-rendered HTML; React hydration is explicit.
 _Avoid_: client components, use client, React everything
+
+## Design
+
+**Theme**:
+Always light mode. No dark toggle, no system preference detection. Remove dark mode CSS vars. Shiki uses one-light theme.
+_Avoid_: dark mode, theme toggle, system preference
+
+**Layout**:
+shadcn Sidebar component. Sidebar contains file tree + search trigger. SidebarInset wraps main content area. Collapses on mobile.
+_Avoid_: custom layout, flexbox hacks
+
+**Icons**:
+Lucide for all icons — file types (FileText, Folder, FileImage), UI controls, search.
+_Avoid_: emoji icons, custom SVG
+
+**Fonts**:
+Space Grotesk (already in template). Keep as-is.
+_Avoid_: font changes, additional fonts
+
+**Errors**:
+Minimal styled 404/500 pages. No elaborate error UI.
+_Avoid_: verbose error pages, error boundaries
 
 ## Architecture
 
