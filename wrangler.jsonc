@@ -8,13 +8,13 @@
     {
       "binding": "ORBIT_DB",
       "database_name": "orbit",
-      "database_id": "590e35ae-c3c2-4de9-8856-1f59e142255b"
-    }
+      "database_id": "590e35ae-c3c2-4de9-8856-1f59e142255b",
+    },
   ],
   "r2_buckets": [
     {
       "binding": "ORBIT_STORAGE",
-      "bucket_name": "orbit"
-    }
-  ]
+      "bucket_name": "orbit",
+    },
+  ],
 }

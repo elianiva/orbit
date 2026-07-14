@@ -95,9 +95,7 @@
       "indexes": {
         "nodes_path_unique": {
           "name": "nodes_path_unique",
-          "columns": [
-            "path"
-          ],
+          "columns": ["path"],
           "isUnique": true
         }
       },

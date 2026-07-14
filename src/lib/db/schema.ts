@@ -8,10 +8,7 @@ export const nodes = sqliteTable("nodes", {
     .notNull()
     .$type<Record<string, unknown>>()
     .default({}),
-  tags: text("tags", { mode: "json" })
-    .notNull()
-    .$type<string[]>()
-    .default([]),
+  tags: text("tags", { mode: "json" }).notNull().$type<string[]>().default([]),
   contentPreview: text("content_preview").notNull().default(""),
   mimeType: text("mime_type").notNull().default(""),
   size: integer("size").notNull().default(0),

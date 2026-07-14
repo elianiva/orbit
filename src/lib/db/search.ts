@@ -15,9 +15,12 @@ export interface SearchService {
   readonly search: (query: string, limit?: number) => Effect.Effect<SearchResult[], SearchError>;
 }
 
-export class SearchService extends Context.Service<SearchService, {
-  readonly search: (query: string, limit?: number) => Effect.Effect<SearchResult[], SearchError>;
-}>()("orbit/SearchService") {}
+export class SearchService extends Context.Service<
+  SearchService,
+  {
+    readonly search: (query: string, limit?: number) => Effect.Effect<SearchResult[], SearchError>;
+  }
+>()("orbit/SearchService") {}
 
 export const SearchServiceLive: Layer.Layer<SearchService, never, Database> = Layer.effect(
   SearchService,

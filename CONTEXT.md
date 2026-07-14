@@ -12,15 +12,12 @@ _Avoid_: store, repo, database
 The process of pushing vault contents from the local filesystem into Orbit's cloud storage. D1 receives the vault tree (nodes with frontmatter, tags, links); R2 receives raw .md files and attachments. Source of truth remains local.
 _Avoid_: upload, deploy, push
 
-
 **Artifact**:
 _Avoid_: output, result, generated file, separate table
-
 
 **Agent Namespace**:
 The `agent/` prefix in vault paths. All agent-written content lives under this boundary (e.g., `agent/teach/2024-06-15-patterns.mdx`). Auto-generated frontmatter includes `created_by: "orbit-mcp"` and `created_at`.
 _Avoid_: skills/, generated/
-
 
 **Paste**:
 A quick publish — raw content (markdown or code) with optional language annotation. Ephemeral by nature, unlike vault entries which are permanent and indexed.
@@ -29,7 +26,6 @@ _Avoid_: post, snippet, note
 **Node**:
 A row in D1 indexing a vault file — its path, title, frontmatter, tags, mime type, content preview, and R2 pointer. The vault tree is derived from path hierarchy, not parent references. All content (manual or agent-authored) lives as first-class nodes.
 _Avoid_: entry, record, row, artifact record, folder node
-
 
 ## Agent Interface
 
@@ -98,4 +94,3 @@ _Avoid_: verbose error pages, error boundaries
 **Features**:
 Each domain (vault, paste, render, mcp) lives in `src/features/<name>/` with its own service, errors, and types. Shared infrastructure (DB, R2, runtime) lives in `src/lib/`. One flat features directory — no nesting beyond the feature name.
 _Avoid_: src/server/, src/domains/, src/services/
-
