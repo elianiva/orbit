@@ -4,6 +4,7 @@ import { drizzle, type DrizzleD1Database } from "drizzle-orm/d1";
 
 import { SearchServiceLive } from "./db/search";
 import { R2ServiceLive } from "./r2";
+import { RenderServiceLive } from "../features/render/service";
 import * as schema from "./db/schema";
 
 export interface Database {
@@ -25,6 +26,7 @@ const AppLayer = Layer.mergeAll(
   DatabaseLive,
   SearchServiceLive.pipe(Layer.provide(DatabaseLive)),
   R2ServiceLive,
+  RenderServiceLive,
 );
 
 let _runtime: ManagedRuntime.ManagedRuntime<never, never> | null = null;
