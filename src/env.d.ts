@@ -1,0 +1,8 @@
+declare module "cloudflare:workers" {
+  interface Env {
+    ORBIT_DB: D1Database;
+    ORBIT_STORAGE: R2Bucket;
+  }
+  const env: Env;
+  export { env };
+}
