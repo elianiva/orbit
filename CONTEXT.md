@@ -91,6 +91,14 @@ _Avoid_: verbose error pages, error boundaries
 
 ## Architecture
 
+**Server Infrastructure**:
+`src/server/` holds all backend infrastructure: Effect services (Database, R2, Search), app-layer composition, managed runtime, and structured JSON logger. Services use `Context.Service` + `Layer` patterns. Domain-agnostic — no business logic here.
+_Avoid_: putting infrastructure in src/lib/, mixing domain logic into server/
+
 **Features**:
-Each domain (vault, paste, render, mcp) lives in `src/features/<name>/` with its own service, errors, and types. Shared infrastructure (DB, R2, runtime) lives in `src/lib/`. One flat features directory — no nesting beyond the feature name.
-_Avoid_: src/server/, src/domains/, src/services/
+Each domain (vault, paste, render, mcp) lives in `src/features/<name>/` with a `lib/` subdirectory for service logic (types, errors, service implementation). Components live at the feature root or in `components/`. One flat features directory — no nesting beyond the feature name.
+_Avoid_: src/domains/, src/services/, feature directories without lib/
+
+**Shared Utilities**:
+`src/lib/` holds only client-side shared utilities (cn, error helpers). No services, no infrastructure.
+_Avoid_: putting services in src/lib/
