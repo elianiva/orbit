@@ -1,7 +1,7 @@
 import { Context, Effect, Layer, Match, Schema } from "effect";
 import { markdownToHtml, evaluate } from "satteri";
 import expressiveCode from "satteri-expressive-code";
-import yaml from "js-yaml";
+import * as yaml from "js-yaml";
 import { renderToString } from "react-dom/server";
 import { jsx, jsxs, Fragment } from "react/jsx-runtime";
 
@@ -69,7 +69,7 @@ export const RenderServiceLive = Layer.succeed(
             useMDXComponents: () => MDX_COMPONENTS,
           })) as { default: React.ComponentType };
 
-          const html = renderToString(jsx(Component, {}));
+          const html = renderToString(jsx(Component, { components: MDX_COMPONENTS }));
           return RenderResult.make({
             html,
             frontmatter: null,
