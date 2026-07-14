@@ -3,15 +3,19 @@ import { Context, Layer, ManagedRuntime } from "effect";
 import { drizzle, type DrizzleD1Database } from "drizzle-orm/d1";
 
 import { SearchServiceLive } from "./db/search";
+import { R2ServiceLive } from "./r2";
 import * as schema from "./db/schema";
 
 export interface Database {
   readonly db: DrizzleD1Database<typeof schema>;
 }
 
-export class Database extends Context.Service<Database, {
-  readonly db: DrizzleD1Database<typeof schema>;
-}>()("orbit/Database") {}
+export class Database extends Context.Service<
+  Database,
+  {
+    readonly db: DrizzleD1Database<typeof schema>;
+  }
+>()("orbit/Database") {}
 
 export const DatabaseLive: Layer.Layer<Database> = Layer.succeed(Database, {
   db: drizzle(env.ORBIT_DB, { schema }),
@@ -20,6 +24,7 @@ export const DatabaseLive: Layer.Layer<Database> = Layer.succeed(Database, {
 const AppLayer = Layer.mergeAll(
   DatabaseLive,
   SearchServiceLive.pipe(Layer.provide(DatabaseLive)),
+  R2ServiceLive,
 );
 
 let _runtime: ManagedRuntime.ManagedRuntime<never, never> | null = null;
