@@ -1,3 +1,4 @@
+/// <reference types="@cloudflare/vitest-pool-workers/types" />
 declare module "cloudflare:workers" {
   interface Env {
     ORBIT_DB: D1Database;
