@@ -21,11 +21,7 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
         charSet: "utf-8",
       },
       {
-        name: "viewport",
-        content: "width=device-width, initial-scale=1",
-      },
-      {
-        title: "TanStack Start Starter",
+        title: "orbit",
       },
     ],
     links: [
@@ -45,14 +41,13 @@ function NotFound() {
       <h1 className="text-6xl font-bold tracking-tight text-muted-foreground">404</h1>
       <p className="mt-3 text-muted-foreground">page not found</p>
       <Link
-        to="/new"
+        to="/"
         className="mt-8 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:opacity-90"
       >
         go home
       </Link>
     </div>
   );
-
 }
 
 function RootDocument({ children }: { children: React.ReactNode }) {

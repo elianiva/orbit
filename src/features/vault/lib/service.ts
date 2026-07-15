@@ -39,6 +39,7 @@ export interface NoteServiceShape {
     { readonly node: NoteResult; readonly content: string },
     NoteNotFoundError | NoteDbError
   >;
+  readonly list: () => Effect.Effect<readonly NoteResult[], NoteDbError>;
   readonly delete: (path: string) => Effect.Effect<void, NoteDbError>;
 }
 
@@ -169,6 +170,17 @@ export const NoteServiceLive: Layer.Layer<NoteService, never, Database | R2Servi
         content,
       };
     });
+    const list = Effect.fn("note.list")(function* () {
+      const now = new Date();
+      const rows = yield* Effect.tryPromise({
+        try: () => db.select().from(nodes).orderBy(nodes.createdAt),
+        catch: (cause) => new NoteDbError({ cause }),
+      });
+
+      return rows
+        .filter((row) => !isExpired(row.frontmatter as Record<string, unknown>, now))
+        .map(toNoteResult);
+    });
 
     const deleteNote = Effect.fn("note.delete")(function* (path: string) {
       const row = yield* Effect.tryPromise({
@@ -193,6 +205,6 @@ export const NoteServiceLive: Layer.Layer<NoteService, never, Database | R2Servi
         .pipe(Effect.mapError((cause) => new NoteDbError({ cause })));
     });
 
-    return NoteService.of({ create, read, delete: deleteNote });
+    return NoteService.of({ create, read, list, delete: deleteNote });
   }),
 );

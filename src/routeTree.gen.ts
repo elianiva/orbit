@@ -9,84 +9,100 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as NewRouteImport } from './routes/new'
 import { Route as McpRouteImport } from './routes/mcp'
-import { Route as IndexRouteImport } from './routes/index'
+import { Route as VaultRouteImport } from './routes/_vault'
+import { Route as VaultIndexRouteImport } from './routes/_vault/index'
 import { Route as ApiNotesRouteImport } from './routes/api/notes'
+import { Route as VaultNewRouteImport } from './routes/_vault/new'
 import { Route as ApiNotesIdRouteImport } from './routes/api/notes.$id'
+import { Route as VaultNotesIdRouteImport } from './routes/_vault/notes/$id'
 
-const NewRoute = NewRouteImport.update({
-  id: '/new',
-  path: '/new',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const McpRoute = McpRouteImport.update({
   id: '/mcp',
   path: '/mcp',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
+const VaultRoute = VaultRouteImport.update({
+  id: '/_vault',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const VaultIndexRoute = VaultIndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => VaultRoute,
 } as any)
 const ApiNotesRoute = ApiNotesRouteImport.update({
   id: '/api/notes',
   path: '/api/notes',
   getParentRoute: () => rootRouteImport,
 } as any)
+const VaultNewRoute = VaultNewRouteImport.update({
+  id: '/new',
+  path: '/new',
+  getParentRoute: () => VaultRoute,
+} as any)
 const ApiNotesIdRoute = ApiNotesIdRouteImport.update({
   id: '/$id',
   path: '/$id',
   getParentRoute: () => ApiNotesRoute,
 } as any)
+const VaultNotesIdRoute = VaultNotesIdRouteImport.update({
+  id: '/notes/$id',
+  path: '/notes/$id',
+  getParentRoute: () => VaultRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
-  '/': typeof IndexRoute
+  '/': typeof VaultIndexRoute
   '/mcp': typeof McpRoute
-  '/new': typeof NewRoute
+  '/new': typeof VaultNewRoute
   '/api/notes': typeof ApiNotesRouteWithChildren
+  '/notes/$id': typeof VaultNotesIdRoute
   '/api/notes/$id': typeof ApiNotesIdRoute
 }
 export interface FileRoutesByTo {
-  '/': typeof IndexRoute
   '/mcp': typeof McpRoute
-  '/new': typeof NewRoute
+  '/new': typeof VaultNewRoute
   '/api/notes': typeof ApiNotesRouteWithChildren
+  '/': typeof VaultIndexRoute
+  '/notes/$id': typeof VaultNotesIdRoute
   '/api/notes/$id': typeof ApiNotesIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
-  '/': typeof IndexRoute
+  '/_vault': typeof VaultRouteWithChildren
   '/mcp': typeof McpRoute
-  '/new': typeof NewRoute
+  '/_vault/new': typeof VaultNewRoute
   '/api/notes': typeof ApiNotesRouteWithChildren
+  '/_vault/': typeof VaultIndexRoute
+  '/_vault/notes/$id': typeof VaultNotesIdRoute
   '/api/notes/$id': typeof ApiNotesIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/mcp' | '/new' | '/api/notes' | '/api/notes/$id'
+  fullPaths:
+    '/' | '/mcp' | '/new' | '/api/notes' | '/notes/$id' | '/api/notes/$id'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/mcp' | '/new' | '/api/notes' | '/api/notes/$id'
-  id: '__root__' | '/' | '/mcp' | '/new' | '/api/notes' | '/api/notes/$id'
+  to: '/mcp' | '/new' | '/api/notes' | '/' | '/notes/$id' | '/api/notes/$id'
+  id:
+    | '__root__'
+    | '/_vault'
+    | '/mcp'
+    | '/_vault/new'
+    | '/api/notes'
+    | '/_vault/'
+    | '/_vault/notes/$id'
+    | '/api/notes/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
-  IndexRoute: typeof IndexRoute
+  VaultRoute: typeof VaultRouteWithChildren
   McpRoute: typeof McpRoute
-  NewRoute: typeof NewRoute
   ApiNotesRoute: typeof ApiNotesRouteWithChildren
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/new': {
-      id: '/new'
-      path: '/new'
-      fullPath: '/new'
-      preLoaderRoute: typeof NewRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/mcp': {
       id: '/mcp'
       path: '/mcp'
@@ -94,12 +110,19 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof McpRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
+    '/_vault': {
+      id: '/_vault'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof VaultRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_vault/': {
+      id: '/_vault/'
       path: '/'
       fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
-      parentRoute: typeof rootRouteImport
+      preLoaderRoute: typeof VaultIndexRouteImport
+      parentRoute: typeof VaultRoute
     }
     '/api/notes': {
       id: '/api/notes'
@@ -108,6 +131,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiNotesRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_vault/new': {
+      id: '/_vault/new'
+      path: '/new'
+      fullPath: '/new'
+      preLoaderRoute: typeof VaultNewRouteImport
+      parentRoute: typeof VaultRoute
+    }
     '/api/notes/$id': {
       id: '/api/notes/$id'
       path: '/$id'
@@ -115,8 +145,29 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiNotesIdRouteImport
       parentRoute: typeof ApiNotesRoute
     }
+    '/_vault/notes/$id': {
+      id: '/_vault/notes/$id'
+      path: '/notes/$id'
+      fullPath: '/notes/$id'
+      preLoaderRoute: typeof VaultNotesIdRouteImport
+      parentRoute: typeof VaultRoute
+    }
   }
 }
+
+interface VaultRouteChildren {
+  VaultNewRoute: typeof VaultNewRoute
+  VaultIndexRoute: typeof VaultIndexRoute
+  VaultNotesIdRoute: typeof VaultNotesIdRoute
+}
+
+const VaultRouteChildren: VaultRouteChildren = {
+  VaultNewRoute: VaultNewRoute,
+  VaultIndexRoute: VaultIndexRoute,
+  VaultNotesIdRoute: VaultNotesIdRoute,
+}
+
+const VaultRouteWithChildren = VaultRoute._addFileChildren(VaultRouteChildren)
 
 interface ApiNotesRouteChildren {
   ApiNotesIdRoute: typeof ApiNotesIdRoute
@@ -131,9 +182,8 @@ const ApiNotesRouteWithChildren = ApiNotesRoute._addFileChildren(
 )
 
 const rootRouteChildren: RootRouteChildren = {
-  IndexRoute: IndexRoute,
+  VaultRoute: VaultRouteWithChildren,
   McpRoute: McpRoute,
-  NewRoute: NewRoute,
   ApiNotesRoute: ApiNotesRouteWithChildren,
 }
 export const routeTree = rootRouteImport

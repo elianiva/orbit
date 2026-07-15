@@ -9,7 +9,7 @@
       "binding": "ORBIT_DB",
       "database_name": "orbit",
       "database_id": "590e35ae-c3c2-4de9-8856-1f59e142255b",
-      "migrations_dir": "./drizzle/"
+      "migrations_dir": "./drizzle/",
     },
   ],
   "r2_buckets": [

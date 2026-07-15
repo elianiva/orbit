@@ -13,6 +13,28 @@ interface NoteCreateRequest {
 export const Route = createFileRoute("/api/notes")({
   server: {
     handlers: {
+      GET: async () => {
+        const runtime = getRuntime();
+        return runtime.runPromise(
+          Effect.gen(function* () {
+            const noteService = yield* NoteService;
+            const notes = yield* noteService.list();
+            return Response.json(
+              notes.map((n) => ({
+                id: n.id,
+                path: n.path,
+                contentPreview: n.contentPreview,
+                size: n.size,
+                createdAt: n.createdAt,
+              })),
+            );
+          }).pipe(
+            Effect.catchTag("NoteDbError", () =>
+              Effect.succeed(Response.json({ error: "Failed to list notes" }, { status: 500 })),
+            ),
+          ),
+        );
+      },
       POST: async ({ request }: { request: Request }) => {
         const body = (await request.json()) as NoteCreateRequest;
 

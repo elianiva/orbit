@@ -54,8 +54,8 @@ export function NoteForm() {
         throw new Error(data.error || "Failed to create note");
       }
 
-      if (data.path) {
-        window.location.href = `/${data.path}`;
+      if (data.id) {
+        window.location.href = `/notes/${data.id}`;
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create note");

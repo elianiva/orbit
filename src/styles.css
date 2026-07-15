@@ -142,3 +142,30 @@ body {
     @apply font-sans;
   }
 }
+
+.tree-panel {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr);
+  min-height: 0;
+  min-width: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+file-tree-container {
+  display: block;
+  height: 100%;
+  width: 100%;
+}
+
+[data-slot="sidebar-group-content"] {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+[data-slot="sidebar-group"] {
+  flex: 1;
+  min-height: 0;
+}
