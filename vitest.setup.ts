@@ -4,7 +4,4 @@ import { addEqualityTesters } from "@effect/vitest";
 
 addEqualityTesters();
 
-await applyD1Migrations(
-  env.ORBIT_DB,
-  (env as unknown as { TEST_MIGRATIONS: any }).TEST_MIGRATIONS,
-);
+await applyD1Migrations(env.ORBIT_DB, (env as unknown as { TEST_MIGRATIONS: any }).TEST_MIGRATIONS);

@@ -8,79 +8,143 @@
 // You should NOT make any changes in this file as it will be overwritten.
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
-import { Route as rootRouteImport } from "./routes/__root";
-import { Route as McpRouteImport } from "./routes/mcp";
-import { Route as IndexRouteImport } from "./routes/index";
+import { Route as rootRouteImport } from './routes/__root'
+import { Route as NewRouteImport } from './routes/new'
+import { Route as McpRouteImport } from './routes/mcp'
+import { Route as IndexRouteImport } from './routes/index'
+import { Route as ApiNotesRouteImport } from './routes/api/notes'
+import { Route as ApiNotesIdRouteImport } from './routes/api/notes.$id'
 
+const NewRoute = NewRouteImport.update({
+  id: '/new',
+  path: '/new',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const McpRoute = McpRouteImport.update({
-  id: "/mcp",
-  path: "/mcp",
+  id: '/mcp',
+  path: '/mcp',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 const IndexRoute = IndexRouteImport.update({
-  id: "/",
-  path: "/",
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
+const ApiNotesRoute = ApiNotesRouteImport.update({
+  id: '/api/notes',
+  path: '/api/notes',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiNotesIdRoute = ApiNotesIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => ApiNotesRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
-  "/": typeof IndexRoute;
-  "/mcp": typeof McpRoute;
+  '/': typeof IndexRoute
+  '/mcp': typeof McpRoute
+  '/new': typeof NewRoute
+  '/api/notes': typeof ApiNotesRouteWithChildren
+  '/api/notes/$id': typeof ApiNotesIdRoute
 }
 export interface FileRoutesByTo {
-  "/": typeof IndexRoute;
-  "/mcp": typeof McpRoute;
+  '/': typeof IndexRoute
+  '/mcp': typeof McpRoute
+  '/new': typeof NewRoute
+  '/api/notes': typeof ApiNotesRouteWithChildren
+  '/api/notes/$id': typeof ApiNotesIdRoute
 }
 export interface FileRoutesById {
-  __root__: typeof rootRouteImport;
-  "/": typeof IndexRoute;
-  "/mcp": typeof McpRoute;
+  __root__: typeof rootRouteImport
+  '/': typeof IndexRoute
+  '/mcp': typeof McpRoute
+  '/new': typeof NewRoute
+  '/api/notes': typeof ApiNotesRouteWithChildren
+  '/api/notes/$id': typeof ApiNotesIdRoute
 }
 export interface FileRouteTypes {
-  fileRoutesByFullPath: FileRoutesByFullPath;
-  fullPaths: "/" | "/mcp";
-  fileRoutesByTo: FileRoutesByTo;
-  to: "/" | "/mcp";
-  id: "__root__" | "/" | "/mcp";
-  fileRoutesById: FileRoutesById;
+  fileRoutesByFullPath: FileRoutesByFullPath
+  fullPaths: '/' | '/mcp' | '/new' | '/api/notes' | '/api/notes/$id'
+  fileRoutesByTo: FileRoutesByTo
+  to: '/' | '/mcp' | '/new' | '/api/notes' | '/api/notes/$id'
+  id: '__root__' | '/' | '/mcp' | '/new' | '/api/notes' | '/api/notes/$id'
+  fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
-  IndexRoute: typeof IndexRoute;
-  McpRoute: typeof McpRoute;
+  IndexRoute: typeof IndexRoute
+  McpRoute: typeof McpRoute
+  NewRoute: typeof NewRoute
+  ApiNotesRoute: typeof ApiNotesRouteWithChildren
 }
 
-declare module "@tanstack/react-router" {
+declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    "/mcp": {
-      id: "/mcp";
-      path: "/mcp";
-      fullPath: "/mcp";
-      preLoaderRoute: typeof McpRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/": {
-      id: "/";
-      path: "/";
-      fullPath: "/";
-      preLoaderRoute: typeof IndexRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
+    '/new': {
+      id: '/new'
+      path: '/new'
+      fullPath: '/new'
+      preLoaderRoute: typeof NewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/mcp': {
+      id: '/mcp'
+      path: '/mcp'
+      fullPath: '/mcp'
+      preLoaderRoute: typeof McpRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/notes': {
+      id: '/api/notes'
+      path: '/api/notes'
+      fullPath: '/api/notes'
+      preLoaderRoute: typeof ApiNotesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/notes/$id': {
+      id: '/api/notes/$id'
+      path: '/$id'
+      fullPath: '/api/notes/$id'
+      preLoaderRoute: typeof ApiNotesIdRouteImport
+      parentRoute: typeof ApiNotesRoute
+    }
   }
 }
+
+interface ApiNotesRouteChildren {
+  ApiNotesIdRoute: typeof ApiNotesIdRoute
+}
+
+const ApiNotesRouteChildren: ApiNotesRouteChildren = {
+  ApiNotesIdRoute: ApiNotesIdRoute,
+}
+
+const ApiNotesRouteWithChildren = ApiNotesRoute._addFileChildren(
+  ApiNotesRouteChildren,
+)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   McpRoute: McpRoute,
-};
+  NewRoute: NewRoute,
+  ApiNotesRoute: ApiNotesRouteWithChildren,
+}
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
-  ._addFileTypes<FileRouteTypes>();
+  ._addFileTypes<FileRouteTypes>()
 
-import type { getRouter } from "./router.tsx";
-import type { createStart } from "@tanstack/react-start";
-declare module "@tanstack/react-start" {
+import type { getRouter } from './router.tsx'
+import type { createStart } from '@tanstack/react-start'
+declare module '@tanstack/react-start' {
   interface Register {
-    ssr: true;
-    router: Awaited<ReturnType<typeof getRouter>>;
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
   }
 }

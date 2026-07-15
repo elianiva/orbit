@@ -1,5 +1,6 @@
 import { Layer } from "effect";
 
+import { NoteServiceLive } from "~/features/vault/lib/service";
 import { RenderServiceLive } from "~/features/render/lib/service";
 
 import { DatabaseLive } from "./db/client";
@@ -12,5 +13,6 @@ export const AppLayer = Layer.mergeAll(
   SearchServiceLive.pipe(Layer.provide(DatabaseLive)),
   R2ServiceLive,
   RenderServiceLive,
+  NoteServiceLive.pipe(Layer.provide(DatabaseLive), Layer.provide(R2ServiceLive)),
   LoggerLive,
 );

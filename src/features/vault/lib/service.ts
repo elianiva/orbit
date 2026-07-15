@@ -1,0 +1,198 @@
+import { Context, Effect, Layer } from "effect";
+import { eq } from "drizzle-orm";
+import { customAlphabet } from "nanoid";
+
+import { Database } from "~/server/db/client";
+import { nodes } from "~/server/db/schema";
+import { R2Service } from "~/server/storage/r2-service";
+
+import { NoteDbError, NoteNotFoundError, NoteValidationError } from "./errors";
+
+const generateId = customAlphabet("0123456789abcdefghijklmnopqrstuvwxyz", 10);
+
+const MAX_CONTENT_SIZE = 1024 * 1024;
+const DEFAULT_TTL_SECONDS = 7 * 24 * 60 * 60;
+const PREVIEW_LENGTH = 200;
+
+export interface NoteCreateInput {
+  readonly content: string;
+  readonly language?: string;
+  readonly ttl?: number;
+}
+
+export interface NoteResult {
+  readonly id: string;
+  readonly path: string;
+  readonly frontmatter: Record<string, unknown>;
+  readonly contentPreview: string;
+  readonly size: number;
+  readonly createdAt: Date;
+}
+
+export interface NoteServiceShape {
+  readonly create: (
+    input: NoteCreateInput,
+  ) => Effect.Effect<NoteResult, NoteValidationError | NoteDbError>;
+  readonly read: (
+    path: string,
+  ) => Effect.Effect<
+    { readonly node: NoteResult; readonly content: string },
+    NoteNotFoundError | NoteDbError
+  >;
+  readonly delete: (path: string) => Effect.Effect<void, NoteDbError>;
+}
+
+export class NoteService extends Context.Service<NoteService, NoteServiceShape>()(
+  "orbit/NoteService",
+) {}
+
+function isExpired(frontmatter: Record<string, unknown>, now: Date): boolean {
+  const ttl = frontmatter.ttl;
+  const createdAt = frontmatter.created_at;
+  if (typeof ttl !== "number" || ttl <= 0) return false;
+  if (typeof createdAt !== "string") return false;
+  const expiresAt = new Date(new Date(createdAt).getTime() + ttl * 1000);
+  return now > expiresAt;
+}
+
+function toNoteResult(row: {
+  id: string;
+  path: string;
+  frontmatter: Record<string, unknown>;
+  contentPreview: string;
+  size: number;
+  createdAt: Date;
+}): NoteResult {
+  return {
+    id: row.id,
+    path: row.path,
+    frontmatter: row.frontmatter,
+    contentPreview: row.contentPreview,
+    size: row.size,
+    createdAt: row.createdAt,
+  };
+}
+
+export const NoteServiceLive: Layer.Layer<NoteService, never, Database | R2Service> = Layer.effect(
+  NoteService,
+  Effect.gen(function* () {
+    const { db } = yield* Database;
+    const r2 = yield* R2Service;
+
+    const create = Effect.fn("note.create")(function* (input: NoteCreateInput) {
+      const content = input.content.trim();
+
+      if (!content) {
+        return yield* new NoteValidationError({ reason: "empty" });
+      }
+
+      const size = new TextEncoder().encode(content).length;
+      if (size > MAX_CONTENT_SIZE) {
+        return yield* new NoteValidationError({ reason: "oversize" });
+      }
+
+      const id = generateId();
+      const path = `notes/${id}`;
+      const language = input.language || "auto";
+      const now = new Date();
+
+      const frontmatter: Record<string, unknown> = {
+        language,
+        created_at: now.toISOString(),
+      };
+
+      if (input.ttl !== undefined && input.ttl > 0) {
+        frontmatter.ttl = input.ttl;
+      } else if (input.ttl === undefined) {
+        frontmatter.ttl = DEFAULT_TTL_SECONDS;
+      }
+      // ttl === 0 means never expire — no ttl field
+
+      yield* r2
+        .put(`notes/${id}`, content, "text/plain")
+        .pipe(Effect.mapError((cause) => new NoteDbError({ cause })));
+
+      yield* Effect.tryPromise({
+        try: () =>
+          db.insert(nodes).values({
+            id,
+            path,
+            title: "",
+            frontmatter,
+            tags: [],
+            contentPreview: content.slice(0, PREVIEW_LENGTH),
+            mimeType: "text/plain",
+            size,
+            contentHash: "",
+            createdAt: now,
+            updatedAt: now,
+          }),
+        catch: (cause) => new NoteDbError({ cause }),
+      });
+
+      return toNoteResult({
+        id,
+        path,
+        frontmatter,
+        contentPreview: content.slice(0, PREVIEW_LENGTH),
+        size,
+        createdAt: now,
+      });
+    });
+
+    const read = Effect.fn("note.read")(function* (path: string) {
+      const row = yield* Effect.tryPromise({
+        try: () =>
+          db
+            .select()
+            .from(nodes)
+            .where(eq(nodes.path, path))
+            .then((rows) => rows[0] ?? null),
+        catch: (cause) => new NoteDbError({ cause }),
+      });
+
+      if (!row) {
+        return yield* new NoteNotFoundError({ path });
+      }
+
+      if (isExpired(row.frontmatter as Record<string, unknown>, new Date())) {
+        return yield* new NoteNotFoundError({ path });
+      }
+
+      const content = yield* r2.get(`notes/${row.id}`).pipe(
+        Effect.mapError((cause) => new NoteDbError({ cause })),
+        Effect.map((obj) => obj ?? ""),
+      );
+
+      return {
+        node: toNoteResult(row),
+        content,
+      };
+    });
+
+    const deleteNote = Effect.fn("note.delete")(function* (path: string) {
+      const row = yield* Effect.tryPromise({
+        try: () =>
+          db
+            .select({ id: nodes.id })
+            .from(nodes)
+            .where(eq(nodes.path, path))
+            .then((rows) => rows[0] ?? null),
+        catch: (cause) => new NoteDbError({ cause }),
+      });
+
+      if (!row) return;
+
+      yield* Effect.tryPromise({
+        try: () => db.delete(nodes).where(eq(nodes.path, path)),
+        catch: (cause) => new NoteDbError({ cause }),
+      });
+
+      yield* r2
+        .delete(`notes/${row.id}`)
+        .pipe(Effect.mapError((cause) => new NoteDbError({ cause })));
+    });
+
+    return NoteService.of({ create, read, delete: deleteNote });
+  }),
+);

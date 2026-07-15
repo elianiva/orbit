@@ -18,14 +18,14 @@ export interface SearchServiceShape {
 
 export class SearchService extends Context.Service<SearchService, SearchServiceShape>()(
   "orbit/SearchService",
-) { }
+) {}
 
 export const SearchServiceLive: Layer.Layer<SearchService, never, Database> = Layer.effect(
   SearchService,
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const { db } = yield* Database;
 
-    const search = Effect.fn("search")(function*(query: string, limit = 20) {
+    const search = Effect.fn("search")(function* (query: string, limit = 20) {
       const result = yield* Effect.tryPromise({
         try: () =>
           db.all<SearchResult>(
@@ -50,4 +50,4 @@ export const SearchServiceLive: Layer.Layer<SearchService, never, Database> = La
 export class SearchError extends Data.TaggedError("SearchError")<{
   readonly cause: unknown;
   readonly query: string;
-}> { }
+}> {}

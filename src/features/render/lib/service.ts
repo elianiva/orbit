@@ -22,7 +22,7 @@ export interface RenderServiceShape {
 
 export class RenderService extends Context.Service<RenderService, RenderServiceShape>()(
   "orbit/RenderService",
-) { }
+) {}
 
 const MDX_COMPONENTS = {
   Callout,

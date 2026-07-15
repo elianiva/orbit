@@ -16,10 +16,3 @@ export const nodes = sqliteTable("nodes", {
   createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
   updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
 });
-
-export const pastes = sqliteTable("pastes", {
-  id: text("id").primaryKey(),
-  content: text("content").notNull(),
-  language: text("language"),
-  createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
-});

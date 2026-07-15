@@ -4,14 +4,11 @@ import { Database, DatabaseLive } from "~/server/db/client";
 import { SearchService, SearchServiceLive } from "~/server/db/search";
 import { nodes } from "~/server/db/schema";
 
-const TestLayer = Layer.mergeAll(
-  DatabaseLive,
-  SearchServiceLive.pipe(Layer.provide(DatabaseLive)),
-);
+const TestLayer = Layer.mergeAll(DatabaseLive, SearchServiceLive.pipe(Layer.provide(DatabaseLive)));
 
 layer(TestLayer)("search", (it) => {
   it.effect("insert nodes and search returns ranked results with highlights", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const { db } = yield* Database;
       const search = yield* SearchService;
 
@@ -38,18 +35,20 @@ layer(TestLayer)("search", (it) => {
       assert.isAbove(results.length, 0);
       assert.strictEqual(results[0].title, "TypeScript Tips");
       assert.include(results[0].snippet, "<mark>");
-    }));
+    }),
+  );
 
   it.effect("no matches returns empty array", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const search = yield* SearchService;
       const results = yield* search.search("zzzznonexistent");
 
       assert.strictEqual(results.length, 0);
-    }));
+    }),
+  );
 
   it.effect("limit parameter caps results", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const { db } = yield* Database;
       const search = yield* SearchService;
 
@@ -77,5 +76,6 @@ layer(TestLayer)("search", (it) => {
 
       assert.isAbove(results.length, 0);
       assert.isAtMost(results.length, 2);
-    }));
+    }),
+  );
 });

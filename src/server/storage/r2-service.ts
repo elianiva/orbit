@@ -30,7 +30,7 @@ export interface R2ServiceShape {
   readonly getContentType: (key: string) => string;
 }
 
-export class R2Service extends Context.Service<R2Service, R2ServiceShape>()("orbit/R2Service") { }
+export class R2Service extends Context.Service<R2Service, R2ServiceShape>()("orbit/R2Service") {}
 
 const MIME_MAP: Record<string, string> = {
   ".md": "text/markdown",
@@ -137,4 +137,4 @@ export class R2Error extends Data.TaggedError("R2Error")<{
   readonly cause: unknown;
   readonly operation: string;
   readonly key: string;
-}> { }
+}> {}
