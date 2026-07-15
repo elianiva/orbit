@@ -1,9 +1,16 @@
-import { Context, Effect, Layer, Match, Schema } from "effect";
-import { markdownToHtml, evaluate } from "satteri";
-import expressiveCode from "satteri-expressive-code";
-import * as yaml from "js-yaml";
+import { Context, Effect, Layer, Schema } from "effect";
+import { unified } from "unified";
+import remarkParse from "remark-parse";
+import remarkGfm from "remark-gfm";
+import remarkMath from "remark-math";
+import remarkWikiLink from "remark-wiki-link";
+import remarkRehype from "remark-rehype";
+import rehypeExpressiveCode from "rehype-expressive-code";
+import rehypeStringify from "rehype-stringify";
+import * as matter from "gray-matter";
+import { evaluate } from "@mdx-js/mdx";
 import { renderToString } from "react-dom/server";
-import { jsx, jsxs, Fragment } from "react/jsx-runtime";
+import { Fragment, jsx, jsxs } from "react/jsx-runtime";
 
 import { Callout, EmbeddedHtml, CodeBlock } from "../components";
 
@@ -30,12 +37,14 @@ const MDX_COMPONENTS = {
   CodeBlock,
 };
 
-function parseFrontmatter(raw?: { kind: string; value: string } | null) {
-  return Match.value(raw).pipe(
-    Match.when({ kind: "yaml" }, (r) => yaml.load(r.value) as Record<string, unknown>),
-    Match.orElse(() => null),
-  );
-}
+const markdownProcessor = unified()
+  .use(remarkParse)
+  .use(remarkGfm)
+  .use(remarkMath)
+  .use(remarkWikiLink)
+  .use(remarkRehype)
+  .use(rehypeExpressiveCode)
+  .use(rehypeStringify);
 
 export const RenderServiceLive = Layer.succeed(
   RenderService,
@@ -43,18 +52,11 @@ export const RenderServiceLive = Layer.succeed(
     toHtml: (source: string) =>
       Effect.tryPromise({
         try: async () => {
-          const result = await markdownToHtml(source, {
-            features: {
-              gfm: true,
-              frontmatter: true,
-              math: true,
-              wikilinks: true,
-            },
-            hastPlugins: [expressiveCode({ themes: ["one-light"], useDarkModeMediaQuery: false })],
-          });
+          const { content, data } = matter.default(source);
+          const file = await markdownProcessor.process(content);
           return RenderResult.make({
-            html: result.html,
-            frontmatter: parseFrontmatter(result.frontmatter),
+            html: String(file),
+            frontmatter: Object.keys(data).length > 0 ? data : null,
           });
         },
         catch: (cause) => new RenderError({ cause, phase: "toHtml" }),
@@ -62,14 +64,14 @@ export const RenderServiceLive = Layer.succeed(
     toMdx: (source: string) =>
       Effect.tryPromise({
         try: async () => {
-          // evaluate expects looser JSX runtime types than React provides
-          const jsxRuntime = { Fragment, jsx, jsxs } as Parameters<typeof evaluate>[1];
-          const { default: Component } = (await evaluate(source, {
-            ...jsxRuntime,
+          const { default: MDXContent } = (await evaluate(source, {
+            Fragment,
+            jsx,
+            jsxs,
             useMDXComponents: () => MDX_COMPONENTS,
           })) as { default: React.ComponentType };
 
-          const html = renderToString(jsx(Component, { components: MDX_COMPONENTS }));
+          const html = renderToString(jsx(MDXContent, { components: MDX_COMPONENTS }));
           return RenderResult.make({
             html,
             frontmatter: null,
