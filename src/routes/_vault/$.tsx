@@ -1,11 +1,15 @@
+import { useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
 import { Effect } from "effect";
 import { z } from "zod";
+import { CopyIcon, CheckIcon } from "lucide-react";
 
 import { NoteService } from "~/features/vault/lib/service";
 import { RenderService } from "~/features/render/lib/service";
 import { getRuntime } from "~/server/app-runtime";
+
+import { Button } from "~/components/ui/button";
 
 function formatSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -49,7 +53,9 @@ const getNoteHtml = createServerFn()
           })
         : node.createdAt;
 
-    return { title, html, tags: tags ?? null, date, size: node.size };
+    const published = !!(fmObj?.published);
+
+    return { title, html, tags: tags ?? null, date, size: node.size, path: node.path, published };
   });
 
 export const Route = createFileRoute("/_vault/$")({
@@ -59,6 +65,7 @@ export const Route = createFileRoute("/_vault/$")({
 
 function NoteViewPage() {
   const data = Route.useLoaderData();
+  const [copied, setCopied] = useState(false);
 
   if (!data) {
     return (
@@ -75,23 +82,55 @@ function NoteViewPage() {
     );
   }
 
-  const { title, html, tags, date, size } = data;
+  const { title, html, tags, date, size, published } = data;
+
+  function copyPublicLink() {
+    const url = `${window.location.origin}/public/${data!.path}`;
+    navigator.clipboard.writeText(url).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  }
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-8">
       <header className="mb-8 border-b border-border pb-6">
-        <h1 className="text-xl font-bold tracking-tight">{title}</h1>
-        <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-          {date && <time dateTime={date}>{date}</time>}
-          <span>{formatSize(size)}</span>
-          {tags && tags.length > 0 && (
-            <span className="flex items-center gap-1.5">
-              {tags.map((tag: string) => (
-                <span key={tag} className="rounded-sm bg-muted px-1.5 py-0.5 text-xs">
-                  #{tag}
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <h1 className="text-xl font-bold tracking-tight">{title}</h1>
+            <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+              {date && <time dateTime={date}>{date}</time>}
+              <span>{formatSize(size)}</span>
+              {tags && tags.length > 0 && (
+                <span className="flex items-center gap-1.5">
+                  {tags.map((tag: string) => (
+                    <span key={tag} className="rounded-sm bg-muted px-1.5 py-0.5 text-xs">
+                      #{tag}
+                    </span>
+                  ))}
                 </span>
-              ))}
-            </span>
+              )}
+            </div>
+          </div>
+          {published && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="shrink-0 gap-1.5"
+              onClick={copyPublicLink}
+            >
+              {copied ? (
+                <>
+                  <CheckIcon className="size-3.5" />
+                  copied
+                </>
+              ) : (
+                <>
+                  <CopyIcon className="size-3.5" />
+                  public link
+                </>
+              )}
+            </Button>
           )}
         </div>
       </header>

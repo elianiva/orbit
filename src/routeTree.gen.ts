@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as McpRouteImport } from './routes/mcp'
 import { Route as VaultRouteImport } from './routes/_vault'
 import { Route as VaultIndexRouteImport } from './routes/_vault/index'
+import { Route as PublicSplatRouteImport } from './routes/public.$'
 import { Route as ApiSearchRouteImport } from './routes/api/search'
 import { Route as ApiNotesRouteImport } from './routes/api/notes'
 import { Route as VaultNewRouteImport } from './routes/_vault/new'
@@ -32,6 +33,11 @@ const VaultIndexRoute = VaultIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => VaultRoute,
+} as any)
+const PublicSplatRoute = PublicSplatRouteImport.update({
+  id: '/public/$',
+  path: '/public/$',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const ApiSearchRoute = ApiSearchRouteImport.update({
   id: '/api/search',
@@ -71,6 +77,7 @@ export interface FileRoutesByFullPath {
   '/new': typeof VaultNewRoute
   '/api/notes': typeof ApiNotesRouteWithChildren
   '/api/search': typeof ApiSearchRoute
+  '/public/$': typeof PublicSplatRoute
   '/api/notes/$$id': typeof ApiNotesIdRouteWithChildren
   '/api/notes/$$id/render': typeof ApiNotesIdRenderRoute
 }
@@ -80,6 +87,7 @@ export interface FileRoutesByTo {
   '/new': typeof VaultNewRoute
   '/api/notes': typeof ApiNotesRouteWithChildren
   '/api/search': typeof ApiSearchRoute
+  '/public/$': typeof PublicSplatRoute
   '/': typeof VaultIndexRoute
   '/api/notes/$$id': typeof ApiNotesIdRouteWithChildren
   '/api/notes/$$id/render': typeof ApiNotesIdRenderRoute
@@ -92,6 +100,7 @@ export interface FileRoutesById {
   '/_vault/new': typeof VaultNewRoute
   '/api/notes': typeof ApiNotesRouteWithChildren
   '/api/search': typeof ApiSearchRoute
+  '/public/$': typeof PublicSplatRoute
   '/_vault/': typeof VaultIndexRoute
   '/api/notes/$$id': typeof ApiNotesIdRouteWithChildren
   '/api/notes/$$id/render': typeof ApiNotesIdRenderRoute
@@ -105,6 +114,7 @@ export interface FileRouteTypes {
     | '/new'
     | '/api/notes'
     | '/api/search'
+    | '/public/$'
     | '/api/notes/$$id'
     | '/api/notes/$$id/render'
   fileRoutesByTo: FileRoutesByTo
@@ -114,6 +124,7 @@ export interface FileRouteTypes {
     | '/new'
     | '/api/notes'
     | '/api/search'
+    | '/public/$'
     | '/'
     | '/api/notes/$$id'
     | '/api/notes/$$id/render'
@@ -125,6 +136,7 @@ export interface FileRouteTypes {
     | '/_vault/new'
     | '/api/notes'
     | '/api/search'
+    | '/public/$'
     | '/_vault/'
     | '/api/notes/$$id'
     | '/api/notes/$$id/render'
@@ -135,6 +147,7 @@ export interface RootRouteChildren {
   McpRoute: typeof McpRoute
   ApiNotesRoute: typeof ApiNotesRouteWithChildren
   ApiSearchRoute: typeof ApiSearchRoute
+  PublicSplatRoute: typeof PublicSplatRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -159,6 +172,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof VaultIndexRouteImport
       parentRoute: typeof VaultRoute
+    }
+    '/public/$': {
+      id: '/public/$'
+      path: '/public/$'
+      fullPath: '/public/$'
+      preLoaderRoute: typeof PublicSplatRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/api/search': {
       id: '/api/search'
@@ -248,6 +268,7 @@ const rootRouteChildren: RootRouteChildren = {
   McpRoute: McpRoute,
   ApiNotesRoute: ApiNotesRouteWithChildren,
   ApiSearchRoute: ApiSearchRoute,
+  PublicSplatRoute: PublicSplatRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
