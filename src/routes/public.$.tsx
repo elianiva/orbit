@@ -5,6 +5,7 @@ import { z } from "zod";
 
 import { NoteService } from "~/features/vault/lib/service";
 import { RenderService } from "~/features/render/lib/service";
+import { stripDocumentTags } from "~/features/render/sanitize-html";
 import { getRuntime } from "~/server/app-runtime";
 
 const getPublicNote = createServerFn()
@@ -16,7 +17,10 @@ const getPublicNote = createServerFn()
         const ns = yield* NoteService;
         const rs = yield* RenderService;
         const { node, content } = yield* ns.read(data.path);
-        const rendered = yield* rs.toHtml(content);
+        const isHtml = node.mimeType === "text/html";
+        const rendered = isHtml
+          ? { html: stripDocumentTags(content), frontmatter: null }
+          : yield* rs.toHtml(content);
 
         const fm = rendered.frontmatter as Record<string, unknown> | null;
         if (!fm?.published) return null;

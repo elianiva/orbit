@@ -3,6 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 
 import { NoteService } from "~/features/vault/lib/service";
 import { RenderService } from "~/features/render/lib/service";
+import { stripDocumentTags } from "~/features/render/sanitize-html";
 import { getRuntime } from "~/server/app-runtime";
 
 export const Route = createFileRoute("/api/notes/$$id/render")({
@@ -16,7 +17,10 @@ export const Route = createFileRoute("/api/notes/$$id/render")({
             const renderService = yield* RenderService;
 
             const { node, content } = yield* noteService.read(params.id.join("/"));
-            const result = yield* renderService.toHtml(content);
+            const isHtml = node.mimeType === "text/html";
+            const result = isHtml
+              ? { html: stripDocumentTags(content), frontmatter: null }
+              : yield* renderService.toHtml(content);
 
             return Response.json({
               id: node.id,

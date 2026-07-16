@@ -7,6 +7,7 @@ import { CopyIcon, CheckIcon } from "lucide-react";
 
 import { NoteService } from "~/features/vault/lib/service";
 import { RenderService } from "~/features/render/lib/service";
+import { stripDocumentTags } from "~/features/render/sanitize-html";
 import { getRuntime } from "~/server/app-runtime";
 
 import { Button } from "~/components/ui/button";
@@ -26,7 +27,10 @@ const getNoteHtml = createServerFn()
         const ns = yield* NoteService;
         const rs = yield* RenderService;
         const { node, content } = yield* ns.read(data.id);
-        const rendered = yield* rs.toHtml(content);
+        const isHtml = node.mimeType === "text/html";
+        const rendered = isHtml
+          ? { html: stripDocumentTags(content), frontmatter: null }
+          : yield* rs.toHtml(content);
         return { node, ...rendered };
       }).pipe(
         Effect.catchTag("NoteNotFoundError", () => Effect.succeed(null)),

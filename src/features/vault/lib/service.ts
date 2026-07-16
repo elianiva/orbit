@@ -28,6 +28,7 @@ export interface NoteResult {
   readonly path: string;
   readonly frontmatter: Record<string, unknown>;
   readonly contentPreview: string;
+  readonly mimeType: string;
   readonly size: number;
   readonly createdAt: Date;
 }
@@ -80,12 +81,12 @@ function isExpired(frontmatter: Record<string, unknown>, now: Date): boolean {
   const expiresAt = new Date(new Date(createdAt).getTime() + ttl * 1000);
   return now > expiresAt;
 }
-
 function toNoteResult(row: {
   id: string;
   path: string;
   frontmatter: Record<string, unknown>;
   contentPreview: string;
+  mimeType: string;
   size: number;
   createdAt: Date;
 }): NoteResult {
@@ -94,6 +95,7 @@ function toNoteResult(row: {
     path: row.path,
     frontmatter: row.frontmatter,
     contentPreview: row.contentPreview,
+    mimeType: row.mimeType,
     size: row.size,
     createdAt: row.createdAt,
   };
@@ -210,6 +212,7 @@ export const NoteServiceLive: Layer.Layer<
         path,
         frontmatter,
         contentPreview: content.slice(0, PREVIEW_LENGTH),
+        mimeType: "text/plain",
         size,
         createdAt: now,
       });
@@ -267,18 +270,32 @@ export const NoteServiceLive: Layer.Layer<
       if (size > MAX_CONTENT_SIZE) {
         return yield* new NoteValidationError({ reason: "oversize" });
       }
-
-      const { default: matter } = yield* Effect.promise(() => import("gray-matter"));
-      const parsed = matter(content);
-
+      const isHtml = input.path.endsWith(".html") || input.path.endsWith(".htm");
+      const contentMimeType = isHtml ? "text/html" : "text/markdown";
       const now = new Date();
-      const frontmatter: Record<string, unknown> = {
-        ...(parsed.data as Record<string, unknown>),
-        created_by: "orbit-mcp",
-        created_at: now.toISOString(),
-      };
 
-      const title = input.title || (frontmatter.title as string) || "";
+      let frontmatter: Record<string, unknown>;
+      let title: string;
+      let fullContent: string;
+
+      if (isHtml) {
+        frontmatter = {
+          created_by: "orbit-mcp",
+          created_at: now.toISOString(),
+        };
+        title = input.title || "";
+        fullContent = content;
+      } else {
+        const { default: matter } = yield* Effect.promise(() => import("gray-matter"));
+        const parsed = matter(content);
+        frontmatter = {
+          ...(parsed.data as Record<string, unknown>),
+          created_by: "orbit-mcp",
+          created_at: now.toISOString(),
+        };
+        title = input.title || (frontmatter.title as string) || "";
+        fullContent = parsed.content;
+      }
 
       const existing = yield* Effect.tryPromise({
         try: () =>
@@ -290,10 +307,8 @@ export const NoteServiceLive: Layer.Layer<
         catch: (cause) => new NoteDbError({ cause }),
       });
 
-      const fullContent = parsed.content;
-
       yield* r2
-        .put(input.path, content, "text/markdown")
+        .put(input.path, content, contentMimeType)
         .pipe(Effect.mapError((cause) => new NoteDbError({ cause })));
 
       if (existing) {
@@ -306,6 +321,7 @@ export const NoteServiceLive: Layer.Layer<
                 frontmatter,
                 tags: (frontmatter.tags as string[]) ?? [],
                 contentPreview: fullContent.slice(0, PREVIEW_LENGTH),
+                mimeType: contentMimeType,
                 size,
                 updatedAt: now,
               })
@@ -326,7 +342,7 @@ export const NoteServiceLive: Layer.Layer<
               frontmatter,
               tags: (frontmatter.tags as string[]) ?? [],
               contentPreview: fullContent.slice(0, PREVIEW_LENGTH),
-              mimeType: "text/markdown",
+              mimeType: contentMimeType,
               size,
               contentHash: "",
               createdAt: now,
@@ -343,6 +359,7 @@ export const NoteServiceLive: Layer.Layer<
         path: input.path,
         frontmatter,
         contentPreview: fullContent.slice(0, PREVIEW_LENGTH),
+        mimeType: contentMimeType,
         size,
         createdAt: now,
       });
@@ -442,12 +459,12 @@ export const NoteServiceLive: Layer.Layer<
 
       yield* removeNoteIndex(fromPath);
       yield* indexNote(toPath, row.title, content);
-
       return toNoteResult({
         id: row.id,
         path: toPath,
         frontmatter: row.frontmatter as Record<string, unknown>,
         contentPreview: row.contentPreview,
+        mimeType: row.mimeType || "text/plain",
         size: row.size,
         createdAt: row.createdAt,
       });

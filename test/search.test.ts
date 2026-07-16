@@ -1,5 +1,6 @@
 import { assert, layer } from "@effect/vitest";
 import { Effect, Layer } from "effect";
+
 import { Database, DatabaseLive } from "~/server/db/client";
 import { SearchService, SearchServiceLive } from "~/server/db/search";
 import { EmbeddingService } from "~/server/embedding";

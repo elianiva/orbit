@@ -10,6 +10,7 @@ export default defineConfig(async () => ({
     cloudflareTest({
       main: "./test/worker.ts",
       wrangler: { configPath: "./wrangler.jsonc" },
+      remoteBindings: false,
       miniflare: {
         bindings: { TEST_MIGRATIONS: migrations },
       },

@@ -109,6 +109,12 @@ export function NoteForm() {
         spellCheck={false}
       />
 
+      {language === "html" && (
+        <p className="text-xs text-muted-foreground">
+          HTML is rendered inside the vault layout. Use a fragment, not a full document — no &lt;html&gt;, &lt;head&gt;, or &lt;body&gt; tags needed.
+        </p>
+      )}
+
       <div className="flex items-center justify-between">
         <button
           type="submit"

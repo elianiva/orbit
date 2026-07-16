@@ -118,7 +118,6 @@ layer(TestLayer)("note service", (it) => {
       const { db } = yield* Database;
       const note = yield* NoteService;
 
-      // Insert a note with TTL that already expired
       const id = "expired-test";
       const path = id;
       const past = new Date(Date.now() - 100000);
@@ -160,18 +159,14 @@ layer(TestLayer)("note service", (it) => {
         ttl: 0,
       });
 
-      // Verify it exists
       const { content } = yield* note.read(created.path);
       assert.strictEqual(content, "to be deleted");
 
-      // Delete it
       yield* note.delete(created.path);
 
-      // Verify it's gone from D1
       const result = yield* note.read(created.path).pipe(Effect.flip);
       assert.instanceOf(result, NoteNotFoundError);
 
-      // Verify it's gone from R2
       const r2Content = yield* r2.get(created.id);
       assert.strictEqual(r2Content, null);
     }),
@@ -181,7 +176,6 @@ layer(TestLayer)("note service", (it) => {
     Effect.gen(function* () {
       const note = yield* NoteService;
 
-      // Should not throw
       yield* note.delete("does-not-exist");
     }),
   );
