@@ -31,34 +31,31 @@ export function SearchDialog({ open, onOpenChange }: SearchDialogProps) {
   const [loading, setLoading] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
-  const search = useCallback(
-    async (q: string) => {
-      if (!q.trim()) {
-        setResults([]);
-        return;
-      }
+  const search = useCallback(async (q: string) => {
+    if (!q.trim()) {
+      setResults([]);
+      return;
+    }
 
-      abortRef.current?.abort();
-      const controller = new AbortController();
-      abortRef.current = controller;
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
 
-      setLoading(true);
-      try {
-        const res = await fetch(`/api/search?q=${encodeURIComponent(q)}`, {
-          signal: controller.signal,
-        });
-        if (res.ok) {
-          const data = await res.json();
-          setResults(data.results ?? []);
-        }
-      } catch {
-        if (!controller.signal.aborted) setResults([]);
-      } finally {
-        setLoading(false);
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/search?q=${encodeURIComponent(q)}`, {
+        signal: controller.signal,
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setResults(data.results ?? []);
       }
-    },
-    [],
-  );
+    } catch {
+      if (!controller.signal.aborted) setResults([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     const timer = setTimeout(() => search(query), 200);
@@ -81,13 +78,14 @@ export function SearchDialog({ open, onOpenChange }: SearchDialogProps) {
   );
 
   return (
-    <CommandDialog open={open} onOpenChange={onOpenChange} title="Search notes" description="Search your vault">
+    <CommandDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title="Search notes"
+      description="Search your vault"
+    >
       <Command shouldFilter={false}>
-        <CommandInput
-          placeholder="search notes..."
-          value={query}
-          onValueChange={setQuery}
-        />
+        <CommandInput placeholder="search notes..." value={query} onValueChange={setQuery} />
         <CommandList>
           {query.trim().length > 0 && !loading && results.length === 0 && (
             <CommandEmpty>no results</CommandEmpty>

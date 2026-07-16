@@ -2,15 +2,33 @@ import { assert, layer } from "@effect/vitest";
 import { Effect, Layer } from "effect";
 
 import { Database, DatabaseLive } from "~/server/db/client";
+import { EmbeddingService } from "~/server/embedding";
+import { VectorizeService } from "~/server/vectorize";
 import { nodes } from "~/server/db/schema";
 import { R2Service, R2ServiceLive } from "~/server/storage/r2-service";
 import { NoteService, NoteServiceLive } from "~/features/vault/lib/service";
 import { NoteNotFoundError, NoteValidationError } from "~/features/vault/lib/errors";
 
+const MockEmbedding = Layer.succeed(EmbeddingService, {
+  embed: () => Effect.succeed([]),
+  embedBatch: () => Effect.succeed([]),
+});
+const MockVectorize = Layer.succeed(VectorizeService, {
+  upsert: () => Effect.succeed(undefined),
+  query: () => Effect.succeed([]),
+  deleteByIds: () => Effect.succeed(undefined),
+});
 const TestLayer = Layer.mergeAll(
   DatabaseLive,
   R2ServiceLive,
-  NoteServiceLive.pipe(Layer.provide(DatabaseLive), Layer.provide(R2ServiceLive)),
+  MockEmbedding,
+  MockVectorize,
+  NoteServiceLive.pipe(
+    Layer.provide(DatabaseLive),
+    Layer.provide(R2ServiceLive),
+    Layer.provide(MockEmbedding),
+    Layer.provide(MockVectorize),
+  ),
 );
 
 layer(TestLayer)("note service", (it) => {

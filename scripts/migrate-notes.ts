@@ -91,8 +91,7 @@ function toOrbitPath(file: string): string {
     const year = parts[1];
     const month = parts[2]?.split("-")[0] ?? "01";
     const dateStr =
-      basename(file, ".md").match(/^(\d{4}-\d{2}-\d{2})/)?.[1] ??
-      slugify(basename(file, ".md"));
+      basename(file, ".md").match(/^(\d{4}-\d{2}-\d{2})/)?.[1] ?? slugify(basename(file, ".md"));
     return `notes/daily/${year}/${month}/${dateStr}.md`;
   }
 
@@ -279,7 +278,9 @@ for (const img of imageFiles) {
   console.log(`  ${name} → ${mime}`);
   try {
     await wrangler([
-      "r2", "object", "put",
+      "r2",
+      "object",
+      "put",
       `${R2_BUCKET}/images/${name}`,
       `--file=${join(staging, "images", name)}`,
       `--content-type=${mime}`,
@@ -300,7 +301,9 @@ for (const note of notes) {
   console.log(`  ${note.orbitPath}`);
   try {
     await wrangler([
-      "r2", "object", "put",
+      "r2",
+      "object",
+      "put",
       `${R2_BUCKET}/${note.orbitPath}`,
       `--file=${join(staging, note.orbitPath)}`,
       "--content-type=text/markdown",

@@ -2,9 +2,29 @@ import { assert, layer } from "@effect/vitest";
 import { Effect, Layer } from "effect";
 import { Database, DatabaseLive } from "~/server/db/client";
 import { SearchService, SearchServiceLive } from "~/server/db/search";
+import { EmbeddingService } from "~/server/embedding";
+import { VectorizeService } from "~/server/vectorize";
 import { nodes } from "~/server/db/schema";
 
-const TestLayer = Layer.mergeAll(DatabaseLive, SearchServiceLive.pipe(Layer.provide(DatabaseLive)));
+const MockEmbedding = Layer.succeed(EmbeddingService, {
+  embed: () => Effect.succeed([]),
+  embedBatch: () => Effect.succeed([]),
+});
+const MockVectorize = Layer.succeed(VectorizeService, {
+  upsert: () => Effect.succeed(undefined),
+  query: () => Effect.succeed([]),
+  deleteByIds: () => Effect.succeed(undefined),
+});
+const TestLayer = Layer.mergeAll(
+  DatabaseLive,
+  MockEmbedding,
+  MockVectorize,
+  SearchServiceLive.pipe(
+    Layer.provide(DatabaseLive),
+    Layer.provide(MockEmbedding),
+    Layer.provide(MockVectorize),
+  ),
+);
 
 layer(TestLayer)("search", (it) => {
   it.effect("insert nodes and search returns ranked results with highlights", () =>

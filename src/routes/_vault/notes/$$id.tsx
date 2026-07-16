@@ -53,8 +53,8 @@ const getNoteHtml = createServerFn()
     return { title, html, tags: tags ?? null, date, size: node.size };
   });
 
-export const Route = createFileRoute("/_vault/notes/$id")({
-  loader: async ({ params }) => getNoteHtml({ data: { id: params.id } }),
+export const Route = createFileRoute("/_vault/notes/$$id")({
+  loader: async ({ params }) => getNoteHtml({ data: { id: (params.id as string[]).join("/") } }),
   component: NoteViewPage,
 });
 

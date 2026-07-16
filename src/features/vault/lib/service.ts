@@ -3,8 +3,11 @@ import { eq } from "drizzle-orm";
 import { customAlphabet } from "nanoid";
 
 import { Database } from "~/server/db/client";
+import { chunkContent, MAX_CHUNKS, PREVIEW_LENGTH } from "~/server/chunking";
 import { nodes } from "~/server/db/schema";
+import { EmbeddingService } from "~/server/embedding";
 import { R2Service } from "~/server/storage/r2-service";
+import { VectorizeService } from "~/server/vectorize";
 
 import { NoteDbError, NoteNotFoundError, NoteValidationError } from "./errors";
 
@@ -12,7 +15,6 @@ const generateId = customAlphabet("0123456789abcdefghijklmnopqrstuvwxyz", 10);
 
 const MAX_CONTENT_SIZE = 1024 * 1024;
 const DEFAULT_TTL_SECONDS = 7 * 24 * 60 * 60;
-const PREVIEW_LENGTH = 200;
 
 export interface NoteCreateInput {
   readonly content: string;
@@ -32,7 +34,11 @@ export interface NoteResult {
 export interface NoteServiceShape {
   readonly create: (
     input: NoteCreateInput,
-  ) => Effect.Effect<NoteResult, NoteValidationError | NoteDbError>;
+  ) => Effect.Effect<
+    NoteResult,
+    NoteValidationError | NoteDbError,
+    EmbeddingService | VectorizeService
+  >;
   readonly read: (
     path: string,
   ) => Effect.Effect<
@@ -40,7 +46,7 @@ export interface NoteServiceShape {
     NoteNotFoundError | NoteDbError
   >;
   readonly list: () => Effect.Effect<readonly NoteResult[], NoteDbError>;
-  readonly delete: (path: string) => Effect.Effect<void, NoteDbError>;
+  readonly delete: (path: string) => Effect.Effect<void, NoteDbError, VectorizeService>;
 }
 
 export class NoteService extends Context.Service<NoteService, NoteServiceShape>()(
@@ -73,8 +79,55 @@ function toNoteResult(row: {
     createdAt: row.createdAt,
   };
 }
+function indexNote(
+  path: string,
+  title: string,
+  content: string,
+): Effect.Effect<void, never, EmbeddingService | VectorizeService> {
+  return Effect.gen(function* () {
+    const embedding = yield* EmbeddingService;
+    const vectorize = yield* VectorizeService;
 
-export const NoteServiceLive: Layer.Layer<NoteService, never, Database | R2Service> = Layer.effect(
+    const chunks = chunkContent(content);
+    const texts = chunks.map((c) => (title ? `${title}\n\n${c}` : c));
+
+    const vectors = yield* embedding
+      .embedBatch(texts)
+      .pipe(Effect.catchTag("EmbeddingError", () => Effect.succeed([])));
+    if (vectors.length === 0) return;
+
+    yield* vectorize
+      .upsert(
+        vectors.map((values: number[], i: number) => ({
+          id: `${path}#${i}`,
+          values,
+          namespace: path.split("/")[0],
+          metadata: {
+            path,
+            title,
+            chunkIndex: i,
+            totalChunks: chunks.length,
+            preview: chunks[i].slice(0, PREVIEW_LENGTH),
+          },
+        })),
+      )
+      .pipe(Effect.catchTag("VectorizeError", () => Effect.void));
+  });
+}
+
+function removeNoteIndex(path: string): Effect.Effect<void, never, VectorizeService> {
+  return Effect.gen(function* () {
+    const vectorize = yield* VectorizeService;
+    const ids = Array.from({ length: MAX_CHUNKS }, (_, i) => `${path}#${i}`);
+    yield* vectorize.deleteByIds(ids).pipe(Effect.catchTag("VectorizeError", () => Effect.void));
+  });
+}
+
+export const NoteServiceLive: Layer.Layer<
+  NoteService,
+  never,
+  Database | R2Service | EmbeddingService | VectorizeService
+> = Layer.effect(
   NoteService,
   Effect.gen(function* () {
     const { db } = yield* Database;
@@ -107,7 +160,6 @@ export const NoteServiceLive: Layer.Layer<NoteService, never, Database | R2Servi
       } else if (input.ttl === undefined) {
         frontmatter.ttl = DEFAULT_TTL_SECONDS;
       }
-      // ttl === 0 means never expire — no ttl field
 
       yield* r2
         .put(`notes/${id}`, content, "text/plain")
@@ -130,6 +182,8 @@ export const NoteServiceLive: Layer.Layer<NoteService, never, Database | R2Servi
           }),
         catch: (cause) => new NoteDbError({ cause }),
       });
+
+      yield* indexNote(path, "", content);
 
       return toNoteResult({
         id,
@@ -170,6 +224,7 @@ export const NoteServiceLive: Layer.Layer<NoteService, never, Database | R2Servi
         content,
       };
     });
+
     const list = Effect.fn("note.list")(function* () {
       const now = new Date();
       const rows = yield* Effect.tryPromise({
@@ -194,6 +249,8 @@ export const NoteServiceLive: Layer.Layer<NoteService, never, Database | R2Servi
       });
 
       if (!row) return;
+
+      yield* removeNoteIndex(path);
 
       yield* Effect.tryPromise({
         try: () => db.delete(nodes).where(eq(nodes.path, path)),
