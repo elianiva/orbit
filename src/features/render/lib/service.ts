@@ -1,18 +1,9 @@
 import { Context, Effect, Layer, Schema } from "effect";
-import { unified } from "unified";
-import remarkParse from "remark-parse";
-import remarkGfm from "remark-gfm";
-import remarkMath from "remark-math";
-import remarkWikiLink from "remark-wiki-link";
-import remarkRehype from "remark-rehype";
-import rehypeExpressiveCode from "rehype-expressive-code";
-import rehypeStringify from "rehype-stringify";
-import * as matter from "gray-matter";
 import { evaluate } from "@mdx-js/mdx";
-import { renderToString } from "react-dom/server";
 import { Fragment, jsx, jsxs } from "react/jsx-runtime";
 
-import { Callout, EmbeddedHtml, CodeBlock } from "../components";
+import { Callout, CodeBlock } from "../components";
+import { EmbeddedHtml } from "../embedded-html";
 
 import { RenderError } from "./errors";
 
@@ -25,6 +16,12 @@ export type RenderResult = typeof RenderResult.Type;
 export interface RenderServiceShape {
   readonly toHtml: (source: string) => Effect.Effect<RenderResult, RenderError>;
   readonly toMdx: (source: string) => Effect.Effect<RenderResult, RenderError>;
+  readonly toMdxComponent: (
+    source: string,
+  ) => Effect.Effect<
+    { Component: React.ComponentType; frontmatter: Record<string, unknown> | null },
+    RenderError
+  >;
 }
 
 export class RenderService extends Context.Service<RenderService, RenderServiceShape>()(
@@ -37,14 +34,25 @@ const MDX_COMPONENTS = {
   CodeBlock,
 };
 
-const markdownProcessor = unified()
-  .use(remarkParse)
-  .use(remarkGfm)
-  .use(remarkMath)
-  .use(remarkWikiLink)
-  .use(remarkRehype)
-  .use(rehypeExpressiveCode)
-  .use(rehypeStringify);
+async function createMarkdownProcessor() {
+  const { unified } = await import("unified");
+  const remarkParse = (await import("remark-parse")).default;
+  const remarkGfm = (await import("remark-gfm")).default;
+  const remarkMath = (await import("remark-math")).default;
+  const remarkWikiLink = (await import("remark-wiki-link")).default;
+  const remarkRehype = (await import("remark-rehype")).default;
+  const rehypeExpressiveCode = (await import("rehype-expressive-code")).default;
+  const rehypeStringify = (await import("rehype-stringify")).default;
+
+  return unified()
+    .use(remarkParse)
+    .use(remarkGfm)
+    .use(remarkMath)
+    .use(remarkWikiLink)
+    .use(remarkRehype)
+    .use(rehypeExpressiveCode)
+    .use(rehypeStringify);
+}
 
 export const RenderServiceLive = Layer.succeed(
   RenderService,
@@ -52,6 +60,9 @@ export const RenderServiceLive = Layer.succeed(
     toHtml: (source: string) =>
       Effect.tryPromise({
         try: async () => {
+          const matter = await import("gray-matter");
+          const markdownProcessor = await createMarkdownProcessor();
+
           const { content, data } = matter.default(source);
           const file = await markdownProcessor.process(content);
           return RenderResult.make({
@@ -64,6 +75,8 @@ export const RenderServiceLive = Layer.succeed(
     toMdx: (source: string) =>
       Effect.tryPromise({
         try: async () => {
+          const { renderToString } = await import("react-dom/server");
+
           const { default: MDXContent } = (await evaluate(source, {
             Fragment,
             jsx,
@@ -76,6 +89,23 @@ export const RenderServiceLive = Layer.succeed(
             html,
             frontmatter: null,
           });
+        },
+        catch: (cause) => new RenderError({ cause, phase: "toMdx" }),
+      }),
+    toMdxComponent: (source: string) =>
+      Effect.tryPromise({
+        try: async () => {
+          const { default: Component, frontmatter: fm } = (await evaluate(source, {
+            Fragment,
+            jsx,
+            jsxs,
+            useMDXComponents: () => MDX_COMPONENTS,
+          })) as {
+            default: React.ComponentType;
+            frontmatter?: Record<string, unknown>;
+          };
+
+          return { Component, frontmatter: fm ?? null };
         },
         catch: (cause) => new RenderError({ cause, phase: "toMdx" }),
       }),

@@ -1,47 +1,71 @@
-import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { createServerFn } from "@tanstack/react-start";
+import { Effect } from "effect";
+import { z } from "zod";
 
-interface NoteData {
-  id: string;
-  path: string;
-  content: string;
-  frontmatter: Record<string, unknown>;
-  size: number;
-  createdAt: string;
+import { NoteService } from "~/features/vault/lib/service";
+import { RenderService } from "~/features/render/lib/service";
+import { getRuntime } from "~/server/app-runtime";
+
+function formatSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+const getNoteHtml = createServerFn()
+  .validator(z.object({ id: z.string() }))
+  .handler(async ({ data }) => {
+    const runtime = getRuntime();
+    const result = await runtime.runPromise(
+      Effect.gen(function* () {
+        const ns = yield* NoteService;
+        const rs = yield* RenderService;
+        const { node, content } = yield* ns.read(`notes/${data.id}`);
+        const rendered = yield* rs.toHtml(content);
+        return { node, ...rendered };
+      }).pipe(
+        Effect.catchTag("NoteNotFoundError", () => Effect.succeed(null)),
+        Effect.catchTag("NoteDbError", () => Effect.succeed(null)),
+        Effect.catch((err) => {
+          console.error("[getNoteHtml] unexpected error:", err);
+          return Effect.succeed(null);
+        }),
+      ),
+    );
+
+    if (!result) return null;
+
+    const { node, html, frontmatter: fm } = result;
+    const fmObj = fm as Record<string, unknown> | null;
+    const title =
+      (fmObj?.title as string | undefined) || node.path.replace(/^notes\//, "").slice(0, 40);
+    const tags = fmObj?.tags as string[] | undefined;
+    const date =
+      node.createdAt instanceof Date
+        ? node.createdAt.toLocaleDateString("en-US", {
+            year: "numeric",
+            month: "long",
+            day: "numeric",
+          })
+        : node.createdAt;
+
+    return { title, html, tags: tags ?? null, date, size: node.size };
+  });
+
 export const Route = createFileRoute("/_vault/notes/$id")({
+  loader: async ({ params }) => getNoteHtml({ data: { id: params.id } }),
   component: NoteViewPage,
 });
 
 function NoteViewPage() {
-  const { id } = Route.useParams();
-  const {
-    data: note,
-    isLoading,
-    error,
-  } = useQuery<NoteData>({
-    queryKey: ["note", id],
-    queryFn: async () => {
-      const res = await fetch(`/api/notes/${id}`);
-      if (!res.ok) throw new Error("Note not found");
-      return res.json();
-    },
-  });
+  const data = Route.useLoaderData();
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <p className="text-muted-foreground">loading...</p>
-      </div>
-    );
-  }
-
-  if (error || !note) {
+  if (!data) {
     return (
       <div className="flex flex-col items-center justify-center py-12">
         <h1 className="text-6xl font-bold tracking-tight text-muted-foreground">404</h1>
-        <p className="mt-3 text-muted-foreground">note not found</p>
+        <p className="mt-3 text-sm text-muted-foreground">note not found</p>
         <Link
           to="/"
           className="mt-8 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90"
@@ -52,17 +76,31 @@ function NoteViewPage() {
     );
   }
 
+  const { title, html, tags, date, size } = data;
+
   return (
     <div className="mx-auto max-w-3xl px-4 py-8">
-      <header className="mb-6">
-        <h1 className="text-2xl font-bold tracking-tight">{note.id}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {note.size} bytes · {new Date(note.createdAt).toLocaleDateString()}
-        </p>
+      <header className="mb-8 border-b border-border pb-6">
+        <h1 className="text-xl font-bold tracking-tight">{title}</h1>
+        <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+          {date && <time dateTime={date}>{date}</time>}
+          <span>{formatSize(size)}</span>
+          {tags && tags.length > 0 && (
+            <span className="flex items-center gap-1.5">
+              {tags.map((tag: string) => (
+                <span key={tag} className="rounded-sm bg-muted px-1.5 py-0.5 text-xs">
+                  #{tag}
+                </span>
+              ))}
+            </span>
+          )}
+        </div>
       </header>
-      <pre className="overflow-x-auto rounded-md border border-border bg-muted p-4 font-mono text-sm">
-        {note.content}
-      </pre>
+
+      <div
+        className="prose prose-sm max-w-none [&_.expressive-code]:my-4"
+        dangerouslySetInnerHTML={{ __html: html }}
+      />
     </div>
   );
 }

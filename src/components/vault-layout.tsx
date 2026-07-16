@@ -43,7 +43,7 @@ export function VaultLayout({ children }: VaultLayoutProps) {
     (selected: readonly string[]) => {
       const path = selected[0];
       if (path && !path.endsWith("/")) {
-        navigate({ to: `/${path}` });
+        void navigate({ to: `/${path}` });
       }
     },
     [navigate],
