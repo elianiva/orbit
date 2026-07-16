@@ -57,9 +57,7 @@ function PublicNotePage() {
       <div className="flex min-h-screen flex-col items-center justify-center bg-background">
         <h1 className="text-6xl font-bold tracking-tight text-muted-foreground">404</h1>
         <p className="mt-3 text-sm text-muted-foreground">note not found or not public</p>
-        <div className="mt-8 text-xs text-muted-foreground">
-          powered by <span className="font-medium text-foreground">orbit</span>
-        </div>
+
       </div>
     );
   }
@@ -89,17 +87,6 @@ function PublicNotePage() {
         dangerouslySetInnerHTML={{ __html: html }}
       />
 
-      <footer className="mt-16 border-t border-border pt-6 text-center">
-        <p className="text-xs text-muted-foreground">
-          published via{" "}
-          <a
-            href={typeof window !== "undefined" ? `${window.location.origin}/` : "https://orbit"}
-            className="font-medium text-foreground hover:underline"
-          >
-            orbit
-          </a>
-        </p>
-      </footer>
     </div>
   );
 }
