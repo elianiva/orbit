@@ -102,3 +102,37 @@ _Avoid_: src/domains/, src/services/, feature directories without lib/
 **Shared Utilities**:
 `src/lib/` holds only client-side shared utilities (cn, error helpers). No services, no infrastructure.
 _Avoid_: putting services in src/lib/
+
+## Vault Conventions
+
+Agents creating notes MUST follow these conventions:
+
+**Path Structure**:
+Notes live under `notes/` with a PARA-inspired hierarchy. Subfolders use slugified names (`Software Engineering` → `software-engineering`).
+
+| Path | Purpose |
+|------|---------|
+| `notes/projects/` | Active projects with deadlines |
+| `notes/areas/` | Ongoing responsibilities (learning, fitness) |
+| `notes/resources/` | Reference material, literature, bookmarks |
+| `notes/fleeting/` | Quick captures, raw ideas |
+| `notes/daily/YYYY/MM/YYYY-MM-DD.md` | Daily journal entries |
+| `notes/mocs/` | Maps of Contents linking related notes |
+
+**Frontmatter Schema**:
+Every note MUST include:
+- `tags: string[]` — role tag + domain tags
+- `created_at: string` — `YYYY-MM-DD` or `YYYY-MM-DD HH:MM`
+
+Optional: `source` (URL), `difficulty` (easy/medium/hard), `published` (boolean).
+
+**Tag Taxonomy**:
+- Role: `project`, `area`, `resource`, `fleeting`, `daily`, `moc`
+- Domain: `software-engineering`, `motorsports`, `workout`, `language-learning`, `literature`, `leetcode`, `islam`
+- Content: `bookmark`, `book`, `post`, `tips`
+
+**Content Rules**:
+- `[[Note Title]]` — wikilinks for internal references
+- `> [!type]` — callouts (tip, warning, quote)
+- `![[image.png]]` — image embeds
+- `- [ ]` / `- [x]` — checklists
