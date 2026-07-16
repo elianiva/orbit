@@ -136,7 +136,7 @@ function NoteViewPage() {
       </header>
 
       <div
-        className="prose prose-sm max-w-none [&_.expressive-code]:my-4"
+        className="prose max-w-none [&_.expressive-code]:my-4"
         dangerouslySetInnerHTML={{ __html: html }}
       />
     </div>
