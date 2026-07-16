@@ -57,7 +57,6 @@ function PublicNotePage() {
       <div className="flex min-h-screen flex-col items-center justify-center bg-background">
         <h1 className="text-6xl font-bold tracking-tight text-muted-foreground">404</h1>
         <p className="mt-3 text-sm text-muted-foreground">note not found or not public</p>
-
       </div>
     );
   }
@@ -86,7 +85,6 @@ function PublicNotePage() {
         className="prose max-w-none [&_.expressive-code]:my-4"
         dangerouslySetInnerHTML={{ __html: html }}
       />
-
     </div>
   );
 }

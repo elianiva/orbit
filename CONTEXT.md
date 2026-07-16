@@ -27,6 +27,35 @@ _Avoid_: output, result, generated file, separate table
 The `agent/` prefix in note paths. All agent-written content lives under this boundary (e.g., `agent/teach/2024-06-15-patterns.mdx`). Auto-generated frontmatter includes `created_by: "orbit-mcp"` and `created_at`.
 _Avoid_: skills/, generated/
 
+## Editing
+
+**CodeMirror 6**:
+The editor used for all note editing. Edits markdown directly (like Obsidian) — no rich-text document model. Markdown remains the source of truth at all times.
+_Avoid_: Lexical, TipTap, rich text, ProseMirror
+
+**Live Preview**:
+CM6 decorations provide styled syntax for headings, bold, italic, links, wikilinks, callouts, and frontmatter. The editor shows a styled preview of the rendered markdown without leaving edit mode — decorations overlay styled DOM on top of the underlying text.
+
+**Toggle Mode**:
+Notes use `<Activity>` (React 19.2) to toggle between read and edit views on the same route. No route change — both views are mounted, only one is visible at a time. Preserves scroll position in the read view when toggling back.
+
+**Auto-save**:
+Debounced save on content change (2s). In-flight saves are cancelled on new input, 3 retry attempts on failure. Subtle status indicator shows "Saving…" / "Saved" in the header. Navigation away is allowed — saves complete in background or are silently lost. No conflict because user notes and agent notes live under different paths.
+
+**Read View**:
+Client-side rendering via `react-markdown` with custom components for wikilinks, callouts, embedded HTML (` ```html {"live":true} `), task lists, math. Same prose styling (`@tailwindcss/typography`) as the current server-rendered view.
+
+**Embedded HTML**:
+A fenced code block with info string `html {"live":true}` — renders the block as live HTML instead of a code block. Future metadata (width, sandbox) can be added to the JSON info string.
+_Avoid_: JSX tags in notes, MDX compilation, `<EmbeddedHtml>` component tags
+
+**Published**:
+Notes with `published: true` in frontmatter are still rendered server-side via the unified/remark pipeline and cached at the Cloudflare edge. The client-side renderer is not used for public pages.
+
+**Callouts**:
+Standard `> [!type]` markdown syntax. Rendered as styled blockquotes in both read and edit views.
+_Avoid_: `<Callout>` JSX tags
+
 ## Agent Interface
 
 **MCP Tools**:

@@ -1,4 +1,7 @@
 import { type FormEvent, useState } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+
+import { VaultRpc } from "~/features/vault/lib/vault-rpc";
 
 const LANGUAGES = [
   { value: "auto", label: "Auto Detect" },
@@ -22,16 +25,30 @@ const TTL_OPTIONS = [
 ] as const;
 
 export function NoteForm() {
+  const queryClient = useQueryClient();
   const [content, setContent] = useState("");
   const [language, setLanguage] = useState("auto");
   const [ttl, setTtl] = useState(604800);
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
 
   const charCount = content.length;
   const lineCount = content ? content.split("\n").length : 0;
 
-  const handleSubmit = async (e: FormEvent) => {
+  const createMutation = useMutation({
+    mutationKey: [...VaultRpc.vault(), "create"],
+    mutationFn: VaultRpc.createNote,
+    onSuccess: (data) => {
+      void queryClient.invalidateQueries({ queryKey: VaultRpc.vault() });
+      if (data.id) {
+        window.location.href = `/notes/${data.id}`;
+      }
+    },
+    onError: (err) => {
+      setError(err.message);
+    },
+  });
+
+  const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     const text = content.trim();
     if (!text) {
@@ -39,28 +56,8 @@ export function NoteForm() {
       return;
     }
 
-    setIsSubmitting(true);
     setError("");
-
-    try {
-      const res = await fetch("/api/notes", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content: text, language, ttl }),
-      });
-      const data = (await res.json()) as { id?: string; path?: string; error?: string };
-
-      if (!res.ok) {
-        throw new Error(data.error || "Failed to create note");
-      }
-
-      if (data.id) {
-        window.location.href = `/notes/${data.id}`;
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create note");
-      setIsSubmitting(false);
-    }
+    createMutation.mutate({ content: text, language, ttl });
   };
 
   return (
@@ -108,17 +105,17 @@ export function NoteForm() {
         onChange={(e) => setContent(e.target.value)}
         className="min-h-[60vh] w-full resize-none rounded-md border border-border bg-background p-4 font-mono text-sm leading-relaxed focus:outline-none focus:ring-1 focus:ring-ring"
         placeholder="Write your note here..."
-        disabled={isSubmitting}
+        disabled={createMutation.isPending}
         spellCheck={false}
       />
 
       <div className="flex items-center justify-between">
         <button
           type="submit"
-          disabled={isSubmitting}
+          disabled={createMutation.isPending}
           className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
         >
-          {isSubmitting ? "Creating..." : "Create Note"}
+          {createMutation.isPending ? "Creating..." : "Create Note"}
         </button>
 
         <span className="font-mono text-sm tabular-nums text-muted-foreground">

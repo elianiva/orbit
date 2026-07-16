@@ -4,14 +4,7 @@ import { FileTextIcon, PlusIcon } from "lucide-react";
 
 import { Button } from "~/components/ui/button";
 import { Skeleton } from "~/components/ui/skeleton";
-
-interface NoteItem {
-  id: string;
-  path: string;
-  contentPreview: string;
-  size: number;
-  createdAt: string;
-}
+import { VaultRpc } from "~/features/vault/lib/vault-rpc";
 
 export const Route = createFileRoute("/_vault/")({
   component: IndexPage,
@@ -34,14 +27,7 @@ function StatCard({ value, label }: { value: string; label: string }) {
 
 function IndexPage() {
   const navigate = useNavigate();
-  const { data: notes = [], isLoading } = useQuery<NoteItem[]>({
-    queryKey: ["notes"],
-    queryFn: async () => {
-      const res = await fetch("/api/notes");
-      if (!res.ok) throw new Error("Failed to fetch notes");
-      return res.json();
-    },
-  });
+  const { data: notes = [], isLoading } = useQuery(VaultRpc.listNotes());
 
   const totalSize = notes.reduce((acc, n) => acc + n.size, 0);
 

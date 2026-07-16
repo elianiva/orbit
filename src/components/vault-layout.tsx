@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { FileTree, useFileTree } from "@pierre/trees/react";
 import type {
@@ -27,14 +27,7 @@ import {
 import { Button } from "~/components/ui/button";
 import { FileTextIcon, Trash2Icon, CopyIcon, PencilIcon } from "lucide-react";
 import { SearchDialog } from "~/components/search-dialog";
-
-interface NoteItem {
-  id: string;
-  path: string;
-  contentPreview: string;
-  size: number;
-  createdAt: string;
-}
+import { VaultRpc, type NoteItem } from "~/features/vault/lib/vault-rpc";
 
 interface VaultLayoutProps {
   children: React.ReactNode;
@@ -109,20 +102,63 @@ function ContextMenuContent({
   );
 }
 
-export function VaultLayout({ children }: VaultLayoutProps) {
-  const navigate = useNavigate();
+function useVaultMutations() {
   const queryClient = useQueryClient();
-  const [searchOpen, setSearchOpen] = useState(false);
-  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
 
-  const { data: notes = [] } = useQuery<NoteItem[]>({
-    queryKey: ["notes"],
-    queryFn: async () => {
-      const res = await fetch("/api/notes");
-      if (!res.ok) throw new Error("Failed to fetch notes");
-      return res.json();
+  const deleteMutation = useMutation({
+    mutationKey: [...VaultRpc.vault(), "delete"],
+    mutationFn: VaultRpc.deleteNote,
+    onMutate: async (path) => {
+      await queryClient.cancelQueries({ queryKey: VaultRpc.listNotes().queryKey });
+      const previous = queryClient.getQueryData<NoteItem[]>(VaultRpc.listNotes().queryKey);
+      queryClient.setQueryData<NoteItem[]>(
+        VaultRpc.listNotes().queryKey,
+        (old) => old?.filter((n) => n.path !== path) ?? [],
+      );
+      return { previous };
+    },
+    onError: (_err, _path, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(VaultRpc.listNotes().queryKey, context.previous);
+      }
+    },
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: VaultRpc.vault() });
     },
   });
+
+  const moveMutation = useMutation({
+    mutationKey: [...VaultRpc.vault(), "move"],
+    mutationFn: VaultRpc.moveNote,
+    onMutate: async ({ fromPath, toPath }) => {
+      await queryClient.cancelQueries({ queryKey: VaultRpc.listNotes().queryKey });
+      const previous = queryClient.getQueryData<NoteItem[]>(VaultRpc.listNotes().queryKey);
+      queryClient.setQueryData<NoteItem[]>(
+        VaultRpc.listNotes().queryKey,
+        (old) => old?.map((n) => (n.path === fromPath ? { ...n, path: toPath } : n)) ?? [],
+      );
+      return { previous };
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(VaultRpc.listNotes().queryKey, context.previous);
+      }
+    },
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: VaultRpc.vault() });
+    },
+  });
+
+  return { deleteMutation, moveMutation };
+}
+
+export function VaultLayout({ children }: VaultLayoutProps) {
+  const navigate = useNavigate();
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const { deleteMutation, moveMutation } = useVaultMutations();
+
+  const { data: notes = [] } = useQuery(VaultRpc.listNotes());
 
   const paths = useMemo(() => notes.map((n) => n.path), [notes]);
 
@@ -136,41 +172,25 @@ export function VaultLayout({ children }: VaultLayoutProps) {
     [navigate],
   );
 
-  const persistMove = useCallback(
-    async (fromPath: string, toPath: string) => {
-      const res = await fetch(`/api/notes/${fromPath}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ moveTo: toPath }),
-      });
-      if (!res.ok) throw new Error("Failed to move note");
-    },
-    [],
-  );
-
   const { model } = useFileTree({
     paths,
     onSelectionChange: handleSelectionChange,
     dragAndDrop: {
-      canDrop: (event) =>
-        event.target.kind === "directory" || event.target.kind === "root",
-      onDropComplete: async (event) => {
-        try {
-          for (const fromPath of event.draggedPaths) {
-            const toPath = computeNewPath(fromPath, event.target.directoryPath);
-            await persistMove(fromPath, toPath);
-          }
-          await queryClient.invalidateQueries({ queryKey: ["notes"] });
-        } catch {
-          await queryClient.invalidateQueries({ queryKey: ["notes"] });
+      canDrop: (event) => event.target.kind === "directory" || event.target.kind === "root",
+      onDropComplete: (event) => {
+        for (const fromPath of event.draggedPaths) {
+          const toPath = computeNewPath(fromPath, event.target.directoryPath);
+          moveMutation.mutate({ fromPath, toPath });
         }
       },
     },
     renaming: {
       canRename: () => true,
-      onRename: async (event) => {
-        await persistMove(event.sourcePath, event.destinationPath);
-        await queryClient.invalidateQueries({ queryKey: ["notes"] });
+      onRename: (event) => {
+        moveMutation.mutate({
+          fromPath: event.sourcePath,
+          toPath: event.destinationPath,
+        });
       },
       onError: (error) => {
         console.error("Rename failed:", error);
@@ -203,18 +223,13 @@ export function VaultLayout({ children }: VaultLayoutProps) {
     return () => document.removeEventListener("keydown", onKeyDown);
   }, []);
 
-  const handleDeleteConfirm = useCallback(async () => {
+  const handleDeleteConfirm = useCallback(() => {
     if (!deleteConfirm) return;
-    try {
-      const res = await fetch(`/api/notes/${deleteConfirm}`, { method: "DELETE" });
-      if (!res.ok) throw new Error("Failed to delete note");
-      model.remove(deleteConfirm);
-      await queryClient.invalidateQueries({ queryKey: ["notes"] });
-    } catch (err) {
-      console.error("Delete failed:", err);
-    }
+    deleteMutation.mutate(deleteConfirm, {
+      onSuccess: () => model.remove(deleteConfirm),
+    });
     setDeleteConfirm(null);
-  }, [deleteConfirm, model, queryClient]);
+  }, [deleteConfirm, model, deleteMutation]);
 
   const handleContextMenuAction = useCallback(
     (action: string, item: FileTreeContextMenuItem) => {
@@ -235,11 +250,7 @@ export function VaultLayout({ children }: VaultLayoutProps) {
 
   const renderContextMenu = useCallback(
     (item: FileTreeContextMenuItem, context: FileTreeContextMenuOpenContext) => (
-      <ContextMenuContent
-        item={item}
-        context={context}
-        onAction={handleContextMenuAction}
-      />
+      <ContextMenuContent item={item} context={context} onAction={handleContextMenuAction} />
     ),
     [handleContextMenuAction],
   );
@@ -250,13 +261,14 @@ export function VaultLayout({ children }: VaultLayoutProps) {
 
       <Dialog
         open={deleteConfirm !== null}
-        onOpenChange={(open) => { if (!open) setDeleteConfirm(null); }}
+        onOpenChange={(open) => {
+          if (!open) setDeleteConfirm(null);
+        }}
       >
         <DialogContent showCloseButton={false}>
           <DialogTitle>Delete note</DialogTitle>
           <DialogDescription>
-            Are you sure you want to delete "{deleteConfirm}"? This cannot be
-            undone.
+            Are you sure you want to delete "{deleteConfirm}"? This cannot be undone.
           </DialogDescription>
           <DialogFooter>
             <DialogClose render={<Button variant="outline">Cancel</Button>} />

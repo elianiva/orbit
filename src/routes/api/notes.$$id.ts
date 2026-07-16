@@ -31,13 +31,14 @@ export const Route = createFileRoute("/api/notes/$$id")({
           ),
         );
       },
-      PATCH: async ({
-        request,
-        params,
-      }: { request: Request; params: { id: string[] } }) => {
+      PATCH: async ({ request, params }: { request: Request; params: { id: string[] } }) => {
         const path = Array.isArray(params?.id)
           ? params.id.join("/")
-          : new URL(request.url).pathname.replace("/api/notes/", "").split("/").filter(Boolean).join("/");
+          : new URL(request.url).pathname
+              .replace("/api/notes/", "")
+              .split("/")
+              .filter(Boolean)
+              .join("/");
         const data = (await request.json()) as Record<string, unknown>;
         const moveTo = data.moveTo;
 
@@ -65,9 +66,7 @@ export const Route = createFileRoute("/api/notes/$$id")({
           ),
         );
       },
-      DELETE: async ({
-        request,
-      }: { request: Request }) => {
+      DELETE: async ({ request }: { request: Request }) => {
         const url = new URL(request.url);
         const segments = url.pathname.replace("/api/notes/", "").split("/").filter(Boolean);
         const path = segments.join("/");
@@ -80,9 +79,7 @@ export const Route = createFileRoute("/api/notes/$$id")({
             return new Response(null, { status: 204 });
           }).pipe(
             Effect.catchTag("NoteDbError", () =>
-              Effect.succeed(
-                Response.json({ error: "Failed to delete note" }, { status: 500 }),
-              ),
+              Effect.succeed(Response.json({ error: "Failed to delete note" }, { status: 500 })),
             ),
           ),
         );
@@ -116,23 +113,17 @@ export const Route = createFileRoute("/api/notes/$$id")({
                 Response.json(
                   {
                     error:
-                      err.reason === "empty"
-                        ? "Content is required"
-                        : "Content exceeds 1MB limit",
+                      err.reason === "empty" ? "Content is required" : "Content exceeds 1MB limit",
                   },
                   { status: err.reason === "empty" ? 400 : 413 },
                 ),
               ),
             ),
             Effect.catchTag("NoteNotAllowedError", (err) =>
-              Effect.succeed(
-                Response.json({ error: err.reason }, { status: 403 }),
-              ),
+              Effect.succeed(Response.json({ error: err.reason }, { status: 403 })),
             ),
             Effect.catchTag("NoteDbError", () =>
-              Effect.succeed(
-                Response.json({ error: "Failed to write note" }, { status: 500 }),
-              ),
+              Effect.succeed(Response.json({ error: "Failed to write note" }, { status: 500 })),
             ),
           ),
         );

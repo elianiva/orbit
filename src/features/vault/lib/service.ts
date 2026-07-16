@@ -46,17 +46,17 @@ export interface NoteServiceShape {
     { readonly node: NoteResult; readonly content: string },
     NoteNotFoundError | NoteDbError
   >;
-  readonly write: (
-    input: { readonly path: string; readonly content: string; readonly title?: string },
-  ) => Effect.Effect<
+  readonly write: (input: {
+    readonly path: string;
+    readonly content: string;
+    readonly title?: string;
+  }) => Effect.Effect<
     NoteResult,
     NoteValidationError | NoteNotAllowedError | NoteDbError,
     EmbeddingService | VectorizeService
   >;
   readonly list: () => Effect.Effect<readonly NoteResult[], NoteDbError>;
-  readonly tree: (
-    parentPath?: string,
-  ) => Effect.Effect<readonly NoteResult[], NoteDbError>;
+  readonly tree: (parentPath?: string) => Effect.Effect<readonly NoteResult[], NoteDbError>;
   readonly delete: (path: string) => Effect.Effect<void, NoteDbError, VectorizeService>;
   readonly move: (
     fromPath: string,
@@ -432,16 +432,11 @@ export const NoteServiceLive: Layer.Layer<
         .put(toPath, content, row.mimeType || "text/plain")
         .pipe(Effect.mapError((cause) => new NoteDbError({ cause })));
 
-      yield* r2
-        .delete(fromPath)
-        .pipe(Effect.mapError((cause) => new NoteDbError({ cause })));
+      yield* r2.delete(fromPath).pipe(Effect.mapError((cause) => new NoteDbError({ cause })));
 
       yield* Effect.tryPromise({
         try: () =>
-          db
-            .update(nodes)
-            .set({ path: toPath, updatedAt: now })
-            .where(eq(nodes.path, fromPath)),
+          db.update(nodes).set({ path: toPath, updatedAt: now }).where(eq(nodes.path, fromPath)),
         catch: (cause) => new NoteDbError({ cause }),
       });
 

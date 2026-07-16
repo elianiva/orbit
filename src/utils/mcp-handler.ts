@@ -13,11 +13,13 @@ export async function handleMcpRequest(request: Request, server: McpServer): Pro
       clientTransport.onmessage = resolve;
       clientTransport.onerror = reject;
 
-      server.connect(serverTransport).then(() =>
-        Promise.all([clientTransport.start(), serverTransport.start()]).then(() =>
-          clientTransport.send(jsonRpcRequest),
-        ),
-      );
+      server
+        .connect(serverTransport)
+        .then(() =>
+          Promise.all([clientTransport.start(), serverTransport.start()]).then(() =>
+            clientTransport.send(jsonRpcRequest),
+          ),
+        );
     });
 
     await clientTransport.close();

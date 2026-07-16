@@ -53,7 +53,7 @@ const getNoteHtml = createServerFn()
           })
         : node.createdAt;
 
-    const published = !!(fmObj?.published);
+    const published = !!fmObj?.published;
 
     return { title, html, tags: tags ?? null, date, size: node.size, path: node.path, published };
   });
