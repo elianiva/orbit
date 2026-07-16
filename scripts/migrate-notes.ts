@@ -84,7 +84,7 @@ function toOrbitPath(file: string): string {
   const prefix = PARA_MAP[parts[0]];
 
   if (!prefix) {
-    return `notes/misc/${slugify(basename(file, ".md"))}.md`;
+    return `misc/${slugify(basename(file, ".md"))}.md`;
   }
 
   if (prefix === "daily") {
@@ -92,12 +92,12 @@ function toOrbitPath(file: string): string {
     const month = parts[2]?.split("-")[0] ?? "01";
     const dateStr =
       basename(file, ".md").match(/^(\d{4}-\d{2}-\d{2})/)?.[1] ?? slugify(basename(file, ".md"));
-    return `notes/daily/${year}/${month}/${dateStr}.md`;
+    return `daily/${year}/${month}/${dateStr}.md`;
   }
 
   const subPath = parts.slice(1, -1).map(slugify);
   const slug = slugify(basename(file, ".md"));
-  return `notes/${[prefix, ...subPath, slug].join("/")}.md`;
+  return `${[prefix, ...subPath, slug].join("/")}.md`;
 }
 
 // ── Content Transform ──────────────────────────────────────────────────────
@@ -170,9 +170,30 @@ function walkImages(dir: string): string[] {
   return results;
 }
 
+// ── Concurrency ───────────────────────────────────────────────────────────
+
+const PARALLEL = Number(arg("--parallel")) || 5;
+
+async function concurrentMap<T, R>(
+  items: T[],
+  fn: (item: T, index: number) => Promise<R>,
+): Promise<(R | undefined)[]> {
+  const results: (R | undefined)[] = [];
+  let next = 0;
+  const workers = Array.from({ length: Math.min(PARALLEL, items.length) }, async () => {
+    while (next < items.length) {
+      const i = next++;
+      results[i] = await fn(items[i], i);
+    }
+  });
+  await Promise.all(workers);
+  return results;
+}
+
 // ── Main ───────────────────────────────────────────────────────────────────
 
 console.log(`Source: ${sourceRoot}\n`);
+console.log(`Parallel: ${PARALLEL}\n`);
 
 const imageFiles = walkImages(sourceRoot);
 const mdFiles = walkMd(sourceRoot);
@@ -270,12 +291,9 @@ for (const img of imageFiles) {
 
 // Images
 console.log(`=== Images (${imageFiles.length}) ===`);
-let imageOk = 0;
-
-for (const img of imageFiles) {
+const imageResults = await concurrentMap(imageFiles, async (img) => {
   const name = basename(img);
   const mime = MIME[extname(name).toLowerCase()] ?? "application/octet-stream";
-  console.log(`  ${name} → ${mime}`);
   try {
     await wrangler([
       "r2",
@@ -285,20 +303,19 @@ for (const img of imageFiles) {
       `--file=${join(staging, "images", name)}`,
       `--content-type=${mime}`,
     ]);
-    imageOk++;
+    console.log(`  ✓ ${name}`);
+    return true;
   } catch (err) {
-    console.error(`  ✗ ${err}`);
+    console.error(`  ✗ ${name}: ${err}`);
+    return false;
   }
-}
-
+});
+const imageOk = imageResults.filter(Boolean).length;
 console.log(`  ${imageOk}/${imageFiles.length}\n`);
 
 // Notes
 console.log(`=== Notes (${notes.length}) ===`);
-let noteOk = 0;
-
-for (const note of notes) {
-  console.log(`  ${note.orbitPath}`);
+const noteResults = await concurrentMap(notes, async (note) => {
   try {
     await wrangler([
       "r2",
@@ -308,12 +325,14 @@ for (const note of notes) {
       `--file=${join(staging, note.orbitPath)}`,
       "--content-type=text/markdown",
     ]);
-    noteOk++;
+    console.log(`  ✓ ${note.orbitPath}`);
+    return true;
   } catch (err) {
-    console.error(`  ✗ ${err}`);
+    console.error(`  ✗ ${note.orbitPath}: ${err}`);
+    return false;
   }
-}
-
+});
+const noteOk = noteResults.filter(Boolean).length;
 console.log(`  ${noteOk}/${notes.length}\n`);
 
 // D1

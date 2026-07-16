@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { Context, Effect, Layer } from "effect";
 import { eq } from "drizzle-orm";
 import { customAlphabet } from "nanoid";
@@ -118,7 +119,8 @@ function indexNote(
 function removeNoteIndex(path: string): Effect.Effect<void, never, VectorizeService> {
   return Effect.gen(function* () {
     const vectorize = yield* VectorizeService;
-    const ids = Array.from({ length: MAX_CHUNKS }, (_, i) => `${path}#${i}`);
+    const prefix = createHash("sha256").update(path).digest("hex").slice(0, 16);
+    const ids = Array.from({ length: MAX_CHUNKS }, (_, i) => `${prefix}#${i}`);
     yield* vectorize.deleteByIds(ids).pipe(Effect.catchTag("VectorizeError", () => Effect.void));
   });
 }
@@ -146,7 +148,7 @@ export const NoteServiceLive: Layer.Layer<
       }
 
       const id = generateId();
-      const path = `notes/${id}`;
+      const path = id;
       const language = input.language || "auto";
       const now = new Date();
 
@@ -162,7 +164,7 @@ export const NoteServiceLive: Layer.Layer<
       }
 
       yield* r2
-        .put(`notes/${id}`, content, "text/plain")
+        .put(path, content, "text/plain")
         .pipe(Effect.mapError((cause) => new NoteDbError({ cause })));
 
       yield* Effect.tryPromise({

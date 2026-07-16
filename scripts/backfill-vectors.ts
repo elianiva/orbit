@@ -143,10 +143,34 @@ interface VectorizeUpsertVector {
 }
 
 async function vectorizeUpsert(vectors: VectorizeUpsertVector[]): Promise<void> {
-  await cfFetch(`/vectorize/v2/indexes/${INDEX_NAME}/vectors`, {
+  const ndjson = vectors.map((v) => JSON.stringify(v)).join("\n") + "\n";
+  const res = await fetch(`${API_BASE}/vectorize/v2/indexes/${INDEX_NAME}/upsert`, {
     method: "POST",
-    body: JSON.stringify({ vectors }),
+    headers: {
+      Authorization: `Bearer ${API_TOKEN}`,
+      "Content-Type": "application/x-ndjson",
+    },
+    body: ndjson,
   });
+  const json = (await res.json()) as { success: boolean; errors?: unknown[] };
+  if (!json.success) throw new Error(`Vectorize upsert error: ${JSON.stringify(json.errors)}`);
+}
+
+// ── Concurrency ───────────────────────────────────────────────────────────
+
+const PARALLEL = Number(arg("--parallel")) || 5;
+
+async function concurrentMap<T, R>(items: T[], fn: (item: T) => Promise<R>): Promise<R[]> {
+  const results: R[] = [];
+  let next = 0;
+  const workers = Array.from({ length: Math.min(PARALLEL, items.length) }, async () => {
+    while (next < items.length) {
+      const i = next++;
+      results[i] = await fn(items[i]);
+    }
+  });
+  await Promise.all(workers);
+  return results;
 }
 
 // ── Core indexing logic ────────────────────────────────────────────────────
@@ -160,8 +184,7 @@ interface IndexResult {
 
 async function indexNote(row: D1Row, forceReindex: boolean): Promise<IndexResult> {
   try {
-    const r2Key = row.id.startsWith("notes/") ? row.id : `notes/${row.id}`;
-    const content = await r2Get(r2Key);
+    const content = await r2Get(row.path);
     const hash = createHash("sha256").update(content).digest("hex");
 
     if (!forceReindex && row.content_hash === hash) {
@@ -185,8 +208,9 @@ async function indexNote(row: D1Row, forceReindex: boolean): Promise<IndexResult
       if (i + EMBED_BATCH < texts.length) await delay(BATCH_DELAY_MS);
     }
 
+    const pathHash = createHash("sha256").update(row.path).digest("hex").slice(0, 16);
     const vectors: VectorizeUpsertVector[] = allVectors.map((values, i) => ({
-      id: `${row.path}#${i}`,
+      id: `${pathHash}#${i}`,
       values,
       namespace: row.path.split("/")[0],
       metadata: {
@@ -240,12 +264,14 @@ if (rows.length === 0) {
 
 console.log(`${rows.length} notes to process\n`);
 
+console.log(`Parallel: ${PARALLEL}\n`);
+
+const results = await concurrentMap(rows, (row) => indexNote(row, force));
+
 let indexed = 0;
 let skipped = 0;
 let errors = 0;
-
-for (const row of rows) {
-  const result = await indexNote(row, force);
+for (const result of results) {
   if (result.error) {
     console.log(`  ✗ ${result.path}: ${result.error}`);
     errors++;

@@ -41,7 +41,7 @@ layer(TestLayer)("note service", (it) => {
         language: "markdown",
       });
 
-      assert.strictEqual(created.path, `notes/${created.id}`);
+      assert.strictEqual(created.path, created.id);
       assert.strictEqual(created.frontmatter.language, "markdown");
       assert.strictEqual(created.frontmatter.ttl, 604800);
       assert.ok(created.size > 0);
@@ -107,7 +107,7 @@ layer(TestLayer)("note service", (it) => {
     Effect.gen(function* () {
       const note = yield* NoteService;
 
-      const result = yield* note.read("notes/nonexistent").pipe(Effect.flip);
+      const result = yield* note.read("nonexistent").pipe(Effect.flip);
 
       assert.instanceOf(result, NoteNotFoundError);
     }),
@@ -120,7 +120,7 @@ layer(TestLayer)("note service", (it) => {
 
       // Insert a note with TTL that already expired
       const id = "expired-test";
-      const path = `notes/${id}`;
+      const path = id;
       const past = new Date(Date.now() - 100000);
       yield* Effect.tryPromise({
         try: () =>
@@ -172,7 +172,7 @@ layer(TestLayer)("note service", (it) => {
       assert.instanceOf(result, NoteNotFoundError);
 
       // Verify it's gone from R2
-      const r2Content = yield* r2.get(`notes/${created.id}`);
+      const r2Content = yield* r2.get(created.id);
       assert.strictEqual(r2Content, null);
     }),
   );
@@ -182,7 +182,7 @@ layer(TestLayer)("note service", (it) => {
       const note = yield* NoteService;
 
       // Should not throw
-      yield* note.delete("notes/does-not-exist");
+      yield* note.delete("does-not-exist");
     }),
   );
 
@@ -197,7 +197,7 @@ layer(TestLayer)("note service", (it) => {
         ttl: 0,
       });
 
-      const r2Content = yield* r2.get(`notes/${created.id}`);
+      const r2Content = yield* r2.get(created.id);
       assert.strictEqual(r2Content, "r2 test content");
     }),
   );

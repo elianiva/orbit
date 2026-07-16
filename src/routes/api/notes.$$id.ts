@@ -12,7 +12,7 @@ export const Route = createFileRoute("/api/notes/$$id")({
         return runtime.runPromise(
           Effect.gen(function* () {
             const noteService = yield* NoteService;
-            const { node, content } = yield* noteService.read(`notes/${params.id.join("/")}`);
+            const { node, content } = yield* noteService.read(params.id.join("/"));
             return Response.json({
               id: node.id,
               path: node.path,

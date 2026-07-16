@@ -21,7 +21,7 @@ const getNoteHtml = createServerFn()
       Effect.gen(function* () {
         const ns = yield* NoteService;
         const rs = yield* RenderService;
-        const { node, content } = yield* ns.read(`notes/${data.id}`);
+        const { node, content } = yield* ns.read(data.id);
         const rendered = yield* rs.toHtml(content);
         return { node, ...rendered };
       }).pipe(
@@ -38,8 +38,7 @@ const getNoteHtml = createServerFn()
 
     const { node, html, frontmatter: fm } = result;
     const fmObj = fm as Record<string, unknown> | null;
-    const title =
-      (fmObj?.title as string | undefined) || node.path.replace(/^notes\//, "").slice(0, 40);
+    const title = (fmObj?.title as string | undefined) || node.path.slice(0, 40);
     const tags = fmObj?.tags as string[] | undefined;
     const date =
       node.createdAt instanceof Date
@@ -53,8 +52,8 @@ const getNoteHtml = createServerFn()
     return { title, html, tags: tags ?? null, date, size: node.size };
   });
 
-export const Route = createFileRoute("/_vault/notes/$$id")({
-  loader: async ({ params }) => getNoteHtml({ data: { id: (params.id as string[]).join("/") } }),
+export const Route = createFileRoute("/_vault/$")({
+  loader: async ({ params }) => getNoteHtml({ data: { id: params._splat ?? "" } }),
   component: NoteViewPage,
 });
 

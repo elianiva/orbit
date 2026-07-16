@@ -15,7 +15,7 @@ export const Route = createFileRoute("/api/notes/$$id/render")({
             const noteService = yield* NoteService;
             const renderService = yield* RenderService;
 
-            const { node, content } = yield* noteService.read(`notes/${params.id.join("/")}`);
+            const { node, content } = yield* noteService.read(params.id.join("/"));
             const result = yield* renderService.toHtml(content);
 
             return Response.json({

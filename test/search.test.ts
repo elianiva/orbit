@@ -36,7 +36,7 @@ layer(TestLayer)("search", (it) => {
         try: () =>
           db.insert(nodes).values({
             id: "search-1",
-            path: "notes/typescript.md",
+            path: "typescript.md",
             title: "TypeScript Tips",
             contentPreview: "Use Effect for typed error handling in TypeScript",
             tags: ["typescript", "effect"],
@@ -77,7 +77,7 @@ layer(TestLayer)("search", (it) => {
           try: () =>
             db.insert(nodes).values({
               id: `limit-${i}`,
-              path: `notes/doc-${i}.md`,
+              path: `doc-${i}.md`,
               title: `Document ${i}`,
               contentPreview: `Content about testing document number ${i}`,
               tags: ["test"],
