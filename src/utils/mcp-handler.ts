@@ -9,25 +9,21 @@ export async function handleMcpRequest(request: Request, server: McpServer): Pro
 
     const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
 
-    let responseData: JSONRPCMessage | null = null;
+    const response = await new Promise<JSONRPCMessage>((resolve, reject) => {
+      clientTransport.onmessage = resolve;
+      clientTransport.onerror = reject;
 
-    clientTransport.onmessage = (message: JSONRPCMessage) => {
-      responseData = message;
-    };
-
-    await server.connect(serverTransport);
-
-    await clientTransport.start();
-    await serverTransport.start();
-
-    await clientTransport.send(jsonRpcRequest);
-
-    await new Promise((resolve) => setTimeout(resolve, 10));
+      server.connect(serverTransport).then(() =>
+        Promise.all([clientTransport.start(), serverTransport.start()]).then(() =>
+          clientTransport.send(jsonRpcRequest),
+        ),
+      );
+    });
 
     await clientTransport.close();
     await serverTransport.close();
 
-    return Response.json(responseData, {
+    return Response.json(response, {
       headers: {
         "Content-Type": "application/json",
       },
@@ -35,7 +31,6 @@ export async function handleMcpRequest(request: Request, server: McpServer): Pro
   } catch (error) {
     console.error("MCP handler error:", error);
 
-    // Return a JSON-RPC error response
     return Response.json(
       {
         jsonrpc: "2.0",

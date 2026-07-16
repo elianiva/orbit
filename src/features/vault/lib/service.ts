@@ -10,7 +10,7 @@ import { EmbeddingService } from "~/server/embedding";
 import { R2Service } from "~/server/storage/r2-service";
 import { VectorizeService } from "~/server/vectorize";
 
-import { NoteDbError, NoteNotFoundError, NoteValidationError } from "./errors";
+import { NoteDbError, NoteNotAllowedError, NoteNotFoundError, NoteValidationError } from "./errors";
 
 const generateId = customAlphabet("0123456789abcdefghijklmnopqrstuvwxyz", 10);
 
@@ -46,7 +46,17 @@ export interface NoteServiceShape {
     { readonly node: NoteResult; readonly content: string },
     NoteNotFoundError | NoteDbError
   >;
+  readonly write: (
+    input: { readonly path: string; readonly content: string; readonly title?: string },
+  ) => Effect.Effect<
+    NoteResult,
+    NoteValidationError | NoteNotAllowedError | NoteDbError,
+    EmbeddingService | VectorizeService
+  >;
   readonly list: () => Effect.Effect<readonly NoteResult[], NoteDbError>;
+  readonly tree: (
+    parentPath?: string,
+  ) => Effect.Effect<readonly NoteResult[], NoteDbError>;
   readonly delete: (path: string) => Effect.Effect<void, NoteDbError, VectorizeService>;
 }
 
@@ -227,6 +237,128 @@ export const NoteServiceLive: Layer.Layer<
       };
     });
 
+    const write = Effect.fn("note.write")(function* (input: {
+      path: string;
+      content: string;
+      title?: string;
+    }) {
+      const content = input.content.trim();
+
+      if (!content) {
+        return yield* new NoteValidationError({ reason: "empty" });
+      }
+
+      if (!input.path.startsWith("agent/")) {
+        return yield* new NoteNotAllowedError({
+          path: input.path,
+          reason: "Path must start with 'agent/' for agent writes",
+        });
+      }
+
+      const size = new TextEncoder().encode(content).length;
+      if (size > MAX_CONTENT_SIZE) {
+        return yield* new NoteValidationError({ reason: "oversize" });
+      }
+
+      const { default: matter } = yield* Effect.promise(() => import("gray-matter"));
+      const parsed = matter(content);
+
+      const now = new Date();
+      const frontmatter: Record<string, unknown> = {
+        ...(parsed.data as Record<string, unknown>),
+        created_by: "orbit-mcp",
+        created_at: now.toISOString(),
+      };
+
+      const title = input.title || (frontmatter.title as string) || "";
+
+      const existing = yield* Effect.tryPromise({
+        try: () =>
+          db
+            .select({ id: nodes.id, path: nodes.path })
+            .from(nodes)
+            .where(eq(nodes.path, input.path))
+            .then((rows) => rows[0] ?? null),
+        catch: (cause) => new NoteDbError({ cause }),
+      });
+
+      const fullContent = parsed.content;
+
+      yield* r2
+        .put(input.path, content, "text/markdown")
+        .pipe(Effect.mapError((cause) => new NoteDbError({ cause })));
+
+      if (existing) {
+        yield* Effect.tryPromise({
+          try: () =>
+            db
+              .update(nodes)
+              .set({
+                title,
+                frontmatter,
+                tags: (frontmatter.tags as string[]) ?? [],
+                contentPreview: fullContent.slice(0, PREVIEW_LENGTH),
+                size,
+                updatedAt: now,
+              })
+              .where(eq(nodes.path, input.path)),
+          catch: (cause) => new NoteDbError({ cause }),
+        });
+
+        yield* removeNoteIndex(input.path);
+      } else {
+        const id = generateId();
+
+        yield* Effect.tryPromise({
+          try: () =>
+            db.insert(nodes).values({
+              id,
+              path: input.path,
+              title,
+              frontmatter,
+              tags: (frontmatter.tags as string[]) ?? [],
+              contentPreview: fullContent.slice(0, PREVIEW_LENGTH),
+              mimeType: "text/markdown",
+              size,
+              contentHash: "",
+              createdAt: now,
+              updatedAt: now,
+            }),
+          catch: (cause) => new NoteDbError({ cause }),
+        });
+      }
+
+      yield* indexNote(input.path, title, fullContent);
+
+      return toNoteResult({
+        id: existing?.id ?? generateId(),
+        path: input.path,
+        frontmatter,
+        contentPreview: fullContent.slice(0, PREVIEW_LENGTH),
+        size,
+        createdAt: now,
+      });
+    });
+
+    const tree = Effect.fn("note.tree")(function* (parentPath?: string) {
+      const now = new Date();
+      const rows = yield* Effect.tryPromise({
+        try: () => db.select().from(nodes).orderBy(nodes.path, nodes.createdAt),
+        catch: (cause) => new NoteDbError({ cause }),
+      });
+
+      const all = rows
+        .filter((row) => !isExpired(row.frontmatter as Record<string, unknown>, now))
+        .map(toNoteResult);
+
+      if (!parentPath) {
+        return all;
+      }
+
+      const prefix = parentPath.endsWith("/") ? parentPath : `${parentPath}/`;
+      return all.filter((n) => n.path.startsWith(prefix));
+    });
+
     const list = Effect.fn("note.list")(function* () {
       const now = new Date();
       const rows = yield* Effect.tryPromise({
@@ -262,6 +394,6 @@ export const NoteServiceLive: Layer.Layer<
       yield* r2.delete(path).pipe(Effect.mapError((cause) => new NoteDbError({ cause })));
     });
 
-    return NoteService.of({ create, read, list, delete: deleteNote });
+    return NoteService.of({ create, read, write, tree, list, delete: deleteNote });
   }),
 );
