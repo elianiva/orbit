@@ -214,7 +214,7 @@ export const NoteServiceLive: Layer.Layer<
         return yield* new NoteNotFoundError({ path });
       }
 
-      const content = yield* r2.get(`notes/${row.id}`).pipe(
+      const content = yield* r2.get(row.path).pipe(
         Effect.mapError((cause) => new NoteDbError({ cause })),
         Effect.map((obj) => obj ?? ""),
       );
@@ -257,9 +257,7 @@ export const NoteServiceLive: Layer.Layer<
         catch: (cause) => new NoteDbError({ cause }),
       });
 
-      yield* r2
-        .delete(`notes/${row.id}`)
-        .pipe(Effect.mapError((cause) => new NoteDbError({ cause })));
+      yield* r2.delete(path).pipe(Effect.mapError((cause) => new NoteDbError({ cause })));
     });
 
     return NoteService.of({ create, read, list, delete: deleteNote });
