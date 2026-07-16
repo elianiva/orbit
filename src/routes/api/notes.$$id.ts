@@ -31,6 +31,62 @@ export const Route = createFileRoute("/api/notes/$$id")({
           ),
         );
       },
+      PATCH: async ({
+        request,
+        params,
+      }: { request: Request; params: { id: string[] } }) => {
+        const path = Array.isArray(params?.id)
+          ? params.id.join("/")
+          : new URL(request.url).pathname.replace("/api/notes/", "").split("/").filter(Boolean).join("/");
+        const data = (await request.json()) as Record<string, unknown>;
+        const moveTo = data.moveTo;
+
+        if (typeof moveTo !== "string" || !moveTo.trim()) {
+          return Response.json({ error: "moveTo path is required" }, { status: 400 });
+        }
+
+        const runtime = getRuntime();
+        return runtime.runPromise(
+          Effect.gen(function* () {
+            const noteService = yield* NoteService;
+            const result = yield* noteService.move(path, moveTo.trim());
+            return Response.json({
+              id: result.id,
+              path: result.path,
+              size: result.size,
+            });
+          }).pipe(
+            Effect.catchTag("NoteNotFoundError", () =>
+              Effect.succeed(Response.json({ error: "Note not found" }, { status: 404 })),
+            ),
+            Effect.catchTag("NoteDbError", () =>
+              Effect.succeed(Response.json({ error: "Failed to move note" }, { status: 500 })),
+            ),
+          ),
+        );
+      },
+      DELETE: async ({
+        request,
+      }: { request: Request }) => {
+        const url = new URL(request.url);
+        const segments = url.pathname.replace("/api/notes/", "").split("/").filter(Boolean);
+        const path = segments.join("/");
+
+        const runtime = getRuntime();
+        return runtime.runPromise(
+          Effect.gen(function* () {
+            const noteService = yield* NoteService;
+            yield* noteService.delete(path);
+            return new Response(null, { status: 204 });
+          }).pipe(
+            Effect.catchTag("NoteDbError", () =>
+              Effect.succeed(
+                Response.json({ error: "Failed to delete note" }, { status: 500 }),
+              ),
+            ),
+          ),
+        );
+      },
       PUT: async ({ request, params }: { request: Request; params: { id: string[] } }) => {
         const path = params.id.join("/");
         const data = (await request.json()) as Record<string, unknown>;

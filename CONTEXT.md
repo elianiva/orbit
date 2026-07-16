@@ -1,6 +1,6 @@
 # Orbit
 
-An online MDX/Obsidian platform on Cloudflare. Stores notes as markdown in R2 with D1 indexes, renders them through Sätteri, and exposes everything via MCP for agent consumption.
+An online markdown/Obsidian platform on Cloudflare. Stores notes as markdown in R2 with D1 indexes, renders them on the client through react-markdown (with known component tags pre-processed as markdown), and exposes everything via MCP for agent consumption.
 
 ## Language
 
@@ -39,13 +39,16 @@ _Avoid_: grep, SQL LIKE, external search
 
 ## Rendering
 
-**Sätteri**:
-The Rust-powered Markdown/MDX engine used for server-side rendering. Parses markdown via native Rust, exposes JS plugin API for AST manipulation. Supports wikilinks, frontmatter, GFM, and math natively. `evaluate()` compiles MDX to React components.
-_Avoid_: marked, remark, rehype, mdx-js
+**Client-side rendering**:
+Notes are rendered on the client using `react-markdown` with a set of known component tags (`<EmbeddedHtml>`, `<Callout>`, `<CodeBlock>`). These are pre-processed into markdown-compatible structures before rendering — not compiled as MDX. Wikilinks, frontmatter, GFM, and custom callouts are handled via react-markdown plugins and custom components.
+_Avoid_: MDX, Sätteri, server-side rendering, Shiki
 
-**Render Pipeline**:
-R2 raw .md → Sätteri `markdownToHtml` (with wikilinks, frontmatter, math) → Shiki code highlighting → pre-rendered React tree served via SSR. For MDX: `evaluate()` with custom components.
-_Avoid_: compile, transform, build
+**AI-authored content**:
+AI agents write content in plain markdown augmented with a small set of known component tags. These follow a predictable format and are handled as custom syntax, not JSX. The full MDX compiler (`@mdx-js/mdx`) is not used on the client.
+
+**Published notes**:
+Notes with `published: true` in frontmatter are rendered server-side (via the same unified/remark pipeline) and cached at the Cloudflare edge. The client-side renderer is not used for public pages.
+_Avoid_: compiling arbitrary MDX, JSX in notes, runtime MDX evaluation
 
 ## Access
 

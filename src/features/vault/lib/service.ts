@@ -58,6 +58,14 @@ export interface NoteServiceShape {
     parentPath?: string,
   ) => Effect.Effect<readonly NoteResult[], NoteDbError>;
   readonly delete: (path: string) => Effect.Effect<void, NoteDbError, VectorizeService>;
+  readonly move: (
+    fromPath: string,
+    toPath: string,
+  ) => Effect.Effect<
+    NoteResult,
+    NoteNotFoundError | NoteDbError,
+    EmbeddingService | VectorizeService
+  >;
 }
 
 export class NoteService extends Context.Service<NoteService, NoteServiceShape>()(
@@ -394,6 +402,62 @@ export const NoteServiceLive: Layer.Layer<
       yield* r2.delete(path).pipe(Effect.mapError((cause) => new NoteDbError({ cause })));
     });
 
-    return NoteService.of({ create, read, write, tree, list, delete: deleteNote });
+    const moveNote = Effect.fn("note.move")(function* (fromPath: string, toPath: string) {
+      const row = yield* Effect.tryPromise({
+        try: () =>
+          db
+            .select()
+            .from(nodes)
+            .where(eq(nodes.path, fromPath))
+            .then((rows) => rows[0] ?? null),
+        catch: (cause) => new NoteDbError({ cause }),
+      });
+
+      if (!row) {
+        return yield* new NoteNotFoundError({ path: fromPath });
+      }
+
+      if (isExpired(row.frontmatter as Record<string, unknown>, new Date())) {
+        return yield* new NoteNotFoundError({ path: fromPath });
+      }
+
+      const content = yield* r2.get(row.path).pipe(
+        Effect.mapError((cause) => new NoteDbError({ cause })),
+        Effect.map((obj) => obj ?? ""),
+      );
+
+      const now = new Date();
+
+      yield* r2
+        .put(toPath, content, row.mimeType || "text/plain")
+        .pipe(Effect.mapError((cause) => new NoteDbError({ cause })));
+
+      yield* r2
+        .delete(fromPath)
+        .pipe(Effect.mapError((cause) => new NoteDbError({ cause })));
+
+      yield* Effect.tryPromise({
+        try: () =>
+          db
+            .update(nodes)
+            .set({ path: toPath, updatedAt: now })
+            .where(eq(nodes.path, fromPath)),
+        catch: (cause) => new NoteDbError({ cause }),
+      });
+
+      yield* removeNoteIndex(fromPath);
+      yield* indexNote(toPath, row.title, content);
+
+      return toNoteResult({
+        id: row.id,
+        path: toPath,
+        frontmatter: row.frontmatter as Record<string, unknown>,
+        contentPreview: row.contentPreview,
+        size: row.size,
+        createdAt: row.createdAt,
+      });
+    });
+
+    return NoteService.of({ create, read, write, tree, list, delete: deleteNote, move: moveNote });
   }),
 );
