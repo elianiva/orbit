@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { FileTree, useFileTree } from "@pierre/trees/react";
@@ -13,6 +13,7 @@ import {
   SidebarTrigger,
 } from "~/components/ui/sidebar";
 import { FileTextIcon } from "lucide-react";
+import { SearchDialog } from "~/components/search-dialog";
 
 interface NoteItem {
   id: string;
@@ -28,6 +29,7 @@ interface VaultLayoutProps {
 
 export function VaultLayout({ children }: VaultLayoutProps) {
   const navigate = useNavigate();
+  const [searchOpen, setSearchOpen] = useState(false);
   const { data: notes = [] } = useQuery<NoteItem[]>({
     queryKey: ["notes"],
     queryFn: async () => {
@@ -59,8 +61,20 @@ export function VaultLayout({ children }: VaultLayoutProps) {
     }
   }, [paths, model]);
 
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault();
+        setSearchOpen((prev) => !prev);
+      }
+    }
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, []);
+
   return (
     <SidebarProvider>
+      <SearchDialog open={searchOpen} onOpenChange={setSearchOpen} />
       <Sidebar>
         <SidebarHeader className="border-b border-sidebar-border">
           <Link to="/" className="flex items-center gap-2 px-2 py-1.5 text-sm font-semibold">
