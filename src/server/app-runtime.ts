@@ -2,7 +2,7 @@ import { ManagedRuntime } from "effect";
 
 import { AppLayer } from "./app-layer";
 
-// Lazy because cloudflare:workers is not immediately available until the first request.
+// Lazy init — ManagedRuntime.make(env layer) isn't safe at module eval time.
 let _runtime: ManagedRuntime.ManagedRuntime<any, any> | null = null;
 
 export function getRuntime() {

@@ -1,7 +1,7 @@
-import { env } from "cloudflare:workers";
 import { Context, Layer } from "effect";
 import { drizzle, type DrizzleD1Database } from "drizzle-orm/d1";
 
+import { env } from "~/server/env";
 import * as schema from "./schema";
 
 export interface DatabaseShape {

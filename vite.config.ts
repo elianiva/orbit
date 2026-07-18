@@ -6,10 +6,7 @@ import { tanstackStart } from "@tanstack/react-start/plugin/vite";
 import viteReact, { reactCompilerPreset } from "@vitejs/plugin-react";
 import babel from "@rolldown/plugin-babel";
 import tailwindcss from "@tailwindcss/vite";
-import { cloudflare } from "@cloudflare/vite-plugin";
 import rsc from "@vitejs/plugin-rsc";
-
-const isTest = process.env.VITEST === "true";
 
 const config = defineConfig({
   staged: {
@@ -24,9 +21,6 @@ const config = defineConfig({
   resolve: { tsconfigPaths: true },
   plugins: lazyPlugins(() => [
     devtools(),
-    ...(!isTest
-      ? [cloudflare({ viteEnvironment: { name: "ssr", childEnvironments: ["rsc"] } })]
-      : []),
     tailwindcss(),
     tanstackStart({ rsc: { enabled: true } }),
     rsc(),

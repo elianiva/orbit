@@ -1,5 +1,6 @@
-import { env } from "cloudflare:workers";
 import { Context, Data, Effect, Layer } from "effect";
+
+import { env } from "~/server/env";
 
 const MODEL = "@cf/baai/bge-m3";
 

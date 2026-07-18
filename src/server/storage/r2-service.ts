@@ -1,6 +1,6 @@
 import { Context, Data, Effect, Layer } from "effect";
 
-import { env } from "cloudflare:workers";
+import { env } from "~/server/env";
 
 export interface R2BlobInfo {
   readonly key: string;
