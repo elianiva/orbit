@@ -88,24 +88,21 @@ export default Alchemy.Stack(
       type: "self_hosted",
       domain: "orbit.elianiva.com",
       policies: [allowAuth.policyId],
-    }).pipe(adopt(true));
+    });
 
     // Public share routes (bypass Access)
     yield* Cloudflare.Access.Application("ShareAccess", {
       type: "self_hosted",
       domain: "orbit.elianiva.com/share/*",
       policies: [bypassShare.policyId],
-    }).pipe(adopt(true));
+    });
 
     // MCP endpoint gated by service token
     yield* Cloudflare.Access.Application("McpAccess", {
       type: "self_hosted",
-      destinations: [
-        { type: "public", uri: "https://orbit.elianiva.com/mcp" },
-        { type: "public", uri: "https://orbit.elianiva.com/mcp/*" },
-      ],
+      domain: "orbit.elianiva.com/mcp/*",
       policies: [allowMcpToken.policyId],
-    }).pipe(adopt(true));
+    });
 
     return {
       url: website.url.as<string>(),
