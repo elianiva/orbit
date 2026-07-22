@@ -27,7 +27,8 @@ const sourceRoot = arg("--source")
 
 const dryRun = process.argv.includes("--dry-run");
 const sqlPath = arg("--sql");
-const R2_BUCKET = "orbit";
+const stage = arg("--stage") ?? "production";
+const stack = arg("--stack") ?? "Orbit";
 const PREVIEW_LEN = 200;
 
 const PARA_MAP: Record<string, string> = {
@@ -76,28 +77,74 @@ async function wrangler(args: string[]): Promise<string> {
   return stdout.trim();
 }
 
+// ── Alchemy Resource Resolution ────────────────────────────────────────────
+
+interface AlchemyResource {
+  status: string;
+  fqn: string;
+  logicalId: string;
+  instanceId: string;
+  resourceType: string;
+  attr: Record<string, unknown>;
+}
+
+async function alchemyStateGet(fqn: string): Promise<AlchemyResource> {
+  const cmd = ["alchemy", "state", "get", "--stack", stack, "--stage", stage, "--fqn", fqn];
+  if (dryRun) {
+    console.log(`  [dry-run] ${cmd.join(" ")}`);
+    return { attr: {} } as AlchemyResource;
+  }
+  const proc = Bun.spawn(cmd, { stdout: "pipe", stderr: "pipe" });
+  const stdout = await new Response(proc.stdout).text();
+  const exitCode = await proc.exited;
+  if (exitCode !== 0) {
+    const stderr = await new Response(proc.stderr).text();
+    throw new Error(stderr || `alchemy state get exited with code ${exitCode}`);
+  }
+  return JSON.parse(stdout);
+}
+
 // ── Path Transform ─────────────────────────────────────────────────────────
 
 function toOrbitPath(file: string): string {
   const rel = relative(sourceRoot, file);
   const parts = rel.split("/");
   const prefix = PARA_MAP[parts[0]];
+  const ext = extname(file) || ".md";
+  const name = basename(file, ext);
 
   if (!prefix) {
-    return `misc/${slugify(basename(file, ".md"))}.md`;
+    return `misc/${slugify(name)}${ext}`;
   }
 
   if (prefix === "daily") {
     const year = parts[1];
     const month = parts[2]?.split("-")[0] ?? "01";
     const dateStr =
-      basename(file, ".md").match(/^(\d{4}-\d{2}-\d{2})/)?.[1] ?? slugify(basename(file, ".md"));
-    return `daily/${year}/${month}/${dateStr}.md`;
+      name.match(/^(\d{4}-\d{2}-\d{2})/)?.[1] ?? slugify(name);
+    return `daily/${year}/${month}/${dateStr}${ext}`;
   }
 
   const subPath = parts.slice(1, -1).map(slugify);
-  const slug = slugify(basename(file, ".md"));
-  return `${[prefix, ...subPath, slug].join("/")}.md`;
+  const slug = slugify(name);
+  return `${[prefix, ...subPath, slug].join("/")}${ext}`;
+}
+
+// ── HTML Helpers ───────────────────────────────────────────────────────────
+
+function extractTitle(html: string): string {
+  const match = html.match(/<title>([^<]*)<\/title>/i);
+  return match ? match[1].trim() : "";
+}
+
+function stripHtml(html: string): string {
+  let out = html;
+  out = out.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, " ");
+  out = out.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, " ");
+  out = out.replace(/<[^>]+>/g, " ");
+  out = out.replace(/&[a-z]+;/g, " ");
+  out = out.replace(/\s+/g, " ");
+  return out.trim();
 }
 
 // ── Content Transform ──────────────────────────────────────────────────────
@@ -156,6 +203,21 @@ function walkMd(dir: string): string[] {
   return results;
 }
 
+function walkHtml(dir: string): string[] {
+  const results: string[] = [];
+  for (const entry of readdirSync(dir)) {
+    if (entry.startsWith(".")) continue;
+    if (SKIP_ROOT.has(entry) && dir === sourceRoot) continue;
+    const full = join(dir, entry);
+    if (statSync(full).isDirectory()) {
+      results.push(...walkHtml(full));
+    } else if (entry.endsWith(".html") || entry.endsWith(".htm")) {
+      results.push(full);
+    }
+  }
+  return results;
+}
+
 function walkImages(dir: string): string[] {
   const results: string[] = [];
   for (const entry of readdirSync(dir)) {
@@ -201,11 +263,15 @@ const notes: Array<{
   orbitPath: string;
   title: string;
   content: string;
+  contentPreview: string;
   frontmatter: Record<string, unknown>;
   tags: string[];
   size: number;
   createdAt: Date;
+  mimeType: string;
 }> = [];
+
+// ── Process Markdown ───────────────────────────────────────────────────────
 
 for (const file of mdFiles) {
   const raw = await Bun.file(file).text();
@@ -224,7 +290,37 @@ for (const file of mdFiles) {
     createdAt = statSync(file).mtime;
   }
 
-  notes.push({ orbitPath, title, content: transformed, frontmatter, tags, size, createdAt });
+  notes.push({ orbitPath, title, content: transformed, contentPreview: transformed.slice(0, PREVIEW_LEN), frontmatter, tags, size, createdAt, mimeType: "text/markdown" });
+}
+
+// ── Process HTML ───────────────────────────────────────────────────────────
+
+const htmlFiles = walkHtml(sourceRoot);
+
+for (const file of htmlFiles) {
+  const raw = await Bun.file(file).text();
+  const orbitPath = toOrbitPath(file);
+  const title = extractTitle(raw);
+  const content = raw;
+  const textContent = stripHtml(raw);
+  const size = Buffer.byteLength(raw, "utf-8");
+  const createdAt = statSync(file).mtime;
+
+  notes.push({
+    orbitPath,
+    title,
+    content,
+    contentPreview: textContent.slice(0, PREVIEW_LEN),
+    frontmatter: {
+      origin: "obsidian",
+      source: "html",
+      para_category: orbitPath.split("/")[1],
+    },
+    tags: [],
+    size,
+    createdAt,
+    mimeType: "text/html",
+  });
 }
 
 notes.sort((a, b) => a.orbitPath.localeCompare(b.orbitPath));
@@ -256,7 +352,7 @@ sql += `-- Notes: ${notes.length}\n\n`;
 for (const n of notes) {
   const fm = JSON.stringify(n.frontmatter).replace(/'/g, "''");
   const tags = JSON.stringify(n.tags).replace(/'/g, "''");
-  const preview = n.content.slice(0, PREVIEW_LEN).replace(/'/g, "''");
+  const preview = n.contentPreview.replace(/'/g, "''");
   const title = n.title.replace(/'/g, "''");
   const ts = Math.floor(n.createdAt.getTime() / 1000);
 
@@ -264,18 +360,27 @@ for (const n of notes) {
   sql += `(id, path, title, frontmatter, tags, content_preview, mime_type, size, content_hash, created_at, updated_at) `;
   sql += `VALUES ('${n.orbitPath.replace(/'/g, "''")}', '${n.orbitPath.replace(/'/g, "''")}', '${title}', `;
   sql += `'${fm}', '${tags}', '${preview}', `;
-  sql += `'text/markdown', ${n.size}, '', ${ts}, ${ts});\n`;
+  sql += `'${n.mimeType}', ${n.size}, '', ${ts}, ${ts});\n`;
 }
 
 // If --sql, write to specified path and exit
 if (sqlPath) {
   await Bun.write(resolve(sqlPath), sql);
   console.log(`SQL written to ${sqlPath}`);
-  console.log(`Run: wrangler d1 execute orbit --remote --file=${sqlPath}`);
+  console.log(`Run: wrangler d1 execute <database-name> --remote --file=${sqlPath}`);
   process.exit(0);
 }
 
 // ── Upload ─────────────────────────────────────────────────────────────────
+
+// Resolve alchemy-managed resource names so we write to the right DB + bucket
+console.log("=== Resolving Alchemy Resources ===\n");
+const dbResource = await alchemyStateGet("DB");
+const bucketResource = await alchemyStateGet("Bucket");
+const d1DatabaseName = String(dbResource.attr.databaseName);
+const r2BucketName = String(bucketResource.attr.bucketName);
+console.log(`  D1:   ${d1DatabaseName}`);
+console.log(`  R2:   ${r2BucketName}\n`);
 
 const staging = join(tmpdir(), `orbit-migration-${Date.now()}`);
 mkdirSync(join(staging, "images"), { recursive: true });
@@ -299,7 +404,7 @@ const imageResults = await concurrentMap(imageFiles, async (img) => {
       "r2",
       "object",
       "put",
-      `${R2_BUCKET}/images/${name}`,
+      `${r2BucketName}/images/${name}`,
       `--file=${join(staging, "images", name)}`,
       `--content-type=${mime}`,
     ]);
@@ -321,9 +426,9 @@ const noteResults = await concurrentMap(notes, async (note) => {
       "r2",
       "object",
       "put",
-      `${R2_BUCKET}/${note.orbitPath}`,
+      `${r2BucketName}/${note.orbitPath}`,
       `--file=${join(staging, note.orbitPath)}`,
-      "--content-type=text/markdown",
+      `--content-type=${note.mimeType}`,
     ]);
     console.log(`  ✓ ${note.orbitPath}`);
     return true;
@@ -341,7 +446,7 @@ await Bun.write(d1sql, sql);
 
 console.log("=== D1 ===");
 try {
-  const result = await wrangler(["d1", "execute", "orbit", `--file=${d1sql}`]);
+  const result = await wrangler(["d1", "execute", d1DatabaseName, `--file=${d1sql}`]);
   if (result) console.log(result);
 } catch (err) {
   console.error(`  ✗ ${err}`);

@@ -11,7 +11,9 @@
     "deploy": "alchemy deploy",
     "plan": "alchemy plan",
     "prepare": "vp config",
-    "login": "alchemy login"
+    "login": "alchemy login",
+    "migrate:notes": "bun scripts/migrate-notes.ts",
+    "migrate:index": "bun scripts/backfill-vectors.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",

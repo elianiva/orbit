@@ -41,7 +41,7 @@ export class Website extends Cloudflare.Website.Vite<Website>()("Website", {
   },
   domain: "orbit.elianiva.com",
   assets: {
-    runWorkerFirst: true,
+    runWorkerFirst: false,
   },
   env: {
     ORBIT_DB: DB,

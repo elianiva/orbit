@@ -19,15 +19,20 @@ import { join } from "node:path";
 
 // ── Args ───────────────────────────────────────────────────────────────────
 
+function arg(name: string): string | undefined {
+  const i = process.argv.indexOf(name);
+  return i !== -1 ? process.argv[i + 1] : undefined;
+}
+
 const dryRun = process.argv.includes("--dry-run");
 const d1Only = process.argv.includes("--d1-only");
 const r2Only = process.argv.includes("--r2-only");
 const vectorizeOnly = process.argv.includes("--vectorize-only");
 const all = !d1Only && !r2Only && !vectorizeOnly;
 
-const DB_ID = "590e35ae-c3c2-4de9-8856-1f59e142255b";
-const R2_BUCKET = "orbit";
-const VECTORIZE_INDEX = "orbit-search";
+const stage = arg("--stage") ?? "production";
+const stack = arg("--stack") ?? "Orbit";
+
 const EMBED_DIMENSIONS = 1024; // @cf/baai/bge-m3
 
 // ── Wrangler credentials ───────────────────────────────────────────────────
@@ -79,6 +84,44 @@ async function cfFetch<T>(path: string, init?: RequestInit & { method?: string }
   if (!json.success) throw new Error(`CF API error: ${JSON.stringify(json.errors)}`);
   return json.result;
 }
+
+// ── Alchemy Resource Resolution ────────────────────────────────────────────
+
+interface AlchemyResource {
+  status: string;
+  fqn: string;
+  logicalId: string;
+  instanceId: string;
+  resourceType: string;
+  attr: Record<string, unknown>;
+}
+
+async function alchemyStateGet(fqn: string): Promise<AlchemyResource> {
+  const cmd = ["alchemy", "state", "get", "--stack", stack, "--stage", stage, "--fqn", fqn];
+  const proc = Bun.spawn(cmd, { stdout: "pipe", stderr: "pipe" });
+  const stdout = await new Response(proc.stdout).text();
+  const exitCode = await proc.exited;
+  if (exitCode !== 0) {
+    const stderr = await new Response(proc.stderr).text();
+    throw new Error(stderr || `alchemy state get exited with code ${exitCode}`);
+  }
+  return JSON.parse(stdout);
+}
+
+// ── Resolve Alchemy Resources ──────────────────────────────────────────────
+
+console.log("=== Resolving Alchemy Resources ===\n");
+const [dbResource, bucketResource, vectorizeResource] = await Promise.all([
+  alchemyStateGet("DB"),
+  alchemyStateGet("Bucket"),
+  alchemyStateGet("VectorizeIndex"),
+]);
+const DB_ID = String(dbResource.attr.databaseId);
+const R2_BUCKET = String(bucketResource.attr.bucketName);
+const VECTORIZE_INDEX = String(vectorizeResource.attr.indexName);
+console.log(`  D1:       ${DB_ID}`);
+console.log(`  R2:       ${R2_BUCKET}`);
+console.log(`  Vectorize: ${VECTORIZE_INDEX}\n`);
 
 // ── D1 ─────────────────────────────────────────────────────────────────────
 
