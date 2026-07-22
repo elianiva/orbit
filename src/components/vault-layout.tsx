@@ -65,7 +65,7 @@ function ContextMenuContent({
   return (
     <div
       role="menu"
-      className="min-w-40 rounded-md border border-border bg-popover p-1 shadow-md outline-none"
+      className="min-w-40 rounded-none border border-border bg-popover p-1 shadow-md outline-none"
       style={{
         position: "fixed",
         top: context.anchorRect.bottom + 4,
@@ -75,7 +75,7 @@ function ContextMenuContent({
     >
       <button
         role="menuitem"
-        className="flex w-full cursor-default items-center gap-2 rounded-sm px-2 py-1.5 text-xs outline-none hover:bg-accent hover:text-accent-foreground"
+        className="flex w-full cursor-default items-center gap-2 rounded-none px-2 py-1.5 text-xs outline-none hover:bg-accent hover:text-accent-foreground"
         onClick={() => handleAction("rename")}
       >
         <PencilIcon className="size-3.5" />
@@ -83,7 +83,7 @@ function ContextMenuContent({
       </button>
       <button
         role="menuitem"
-        className="flex w-full cursor-default items-center gap-2 rounded-sm px-2 py-1.5 text-xs outline-none hover:bg-accent hover:text-accent-foreground"
+        className="flex w-full cursor-default items-center gap-2 rounded-none px-2 py-1.5 text-xs outline-none hover:bg-accent hover:text-accent-foreground"
         onClick={() => handleAction("copy-path")}
       >
         <CopyIcon className="size-3.5" />
@@ -92,7 +92,7 @@ function ContextMenuContent({
       <div className="-mx-1 my-1 h-px bg-border" />
       <button
         role="menuitem"
-        className="flex w-full cursor-default items-center gap-2 rounded-sm px-2 py-1.5 text-xs outline-none hover:bg-destructive/10 hover:text-destructive"
+        className="flex w-full cursor-default items-center gap-2 rounded-none px-2 py-1.5 text-xs outline-none hover:bg-destructive/10 hover:text-destructive"
         onClick={() => handleAction("delete")}
       >
         <Trash2Icon className="size-3.5" />

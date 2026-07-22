@@ -76,7 +76,7 @@ function PublicNotePage() {
           {tags && tags.length > 0 && (
             <span className="flex items-center gap-1.5">
               {tags.map((tag: string) => (
-                <span key={tag} className="rounded-sm bg-muted px-1.5 py-0.5 text-xs">
+                <span key={tag} className="rounded-none bg-muted px-1.5 py-0.5 text-xs">
                   #{tag}
                 </span>
               ))}

@@ -78,7 +78,7 @@ function NoteViewPage() {
         <p className="mt-3 text-sm text-muted-foreground">note not found</p>
         <Link
           to="/"
-          className="mt-8 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90"
+          className="mt-8 rounded-none bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90"
         >
           back to vault
         </Link>
@@ -108,7 +108,7 @@ function NoteViewPage() {
               {tags && tags.length > 0 && (
                 <span className="flex items-center gap-1.5">
                   {tags.map((tag: string) => (
-                    <span key={tag} className="rounded-sm bg-muted px-1.5 py-0.5 text-xs">
+                    <span key={tag} className="rounded-none bg-muted px-1.5 py-0.5 text-xs">
                       #{tag}
                     </span>
                   ))}

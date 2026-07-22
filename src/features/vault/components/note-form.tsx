@@ -71,7 +71,7 @@ export function NoteForm() {
             id="note-language"
             value={language}
             onChange={(e) => setLanguage(e.target.value)}
-            className="h-9 rounded-md border border-border bg-background px-3 text-sm"
+            className="h-9 rounded-none border border-border bg-background px-3 text-sm"
           >
             {LANGUAGES.map((lang) => (
               <option key={lang.value} value={lang.value}>
@@ -89,7 +89,7 @@ export function NoteForm() {
             id="note-ttl"
             value={ttl}
             onChange={(e) => setTtl(Number(e.target.value))}
-            className="h-9 rounded-md border border-border bg-background px-3 text-sm"
+            className="h-9 rounded-none border border-border bg-background px-3 text-sm"
           >
             {TTL_OPTIONS.map((opt) => (
               <option key={opt.value} value={opt.value}>
@@ -103,7 +103,7 @@ export function NoteForm() {
       <textarea
         value={content}
         onChange={(e) => setContent(e.target.value)}
-        className="min-h-[60vh] w-full resize-none rounded-md border border-border bg-background p-4 font-mono text-sm leading-relaxed focus:outline-none focus:ring-1 focus:ring-ring"
+        className="min-h-[60vh] w-full resize-none rounded-none border border-border bg-background p-4 font-mono text-sm leading-relaxed focus:outline-none focus:ring-1 focus:ring-ring"
         placeholder="Write your note here..."
         disabled={createMutation.isPending}
         spellCheck={false}
@@ -119,7 +119,7 @@ export function NoteForm() {
         <button
           type="submit"
           disabled={createMutation.isPending}
-          className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
+          className="rounded-none bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
         >
           {createMutation.isPending ? "Creating..." : "Create Note"}
         </button>
@@ -130,7 +130,7 @@ export function NoteForm() {
       </div>
 
       {error && (
-        <div className="rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+        <div className="rounded-none border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive">
           {error}
         </div>
       )}

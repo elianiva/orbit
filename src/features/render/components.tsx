@@ -20,7 +20,7 @@ const VARIANT_LABELS: Record<string, string> = {
 
 export function Callout({ variant = "info", title, children }: CalloutProps) {
   return (
-    <div className={`border-l-4 rounded-r-md p-4 my-4 ${VARIANT_STYLES[variant]}`}>
+    <div className={`border-l-4 rounded-none p-4 my-4 ${VARIANT_STYLES[variant]}`}>
       <p className="font-semibold mb-1">{title ?? VARIANT_LABELS[variant]}</p>
       <div className="text-sm">{children}</div>
     </div>

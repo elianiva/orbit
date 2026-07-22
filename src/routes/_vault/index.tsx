@@ -18,7 +18,7 @@ function formatSize(bytes: number): string {
 
 function StatCard({ value, label }: { value: string; label: string }) {
   return (
-    <div className="rounded-md border border-border p-4">
+    <div className="rounded-none border border-border p-4">
       <p className="text-xl font-bold tracking-tight">{value}</p>
       <p className="mt-0.5 text-xs text-muted-foreground">{label}</p>
     </div>
@@ -45,7 +45,7 @@ function IndexPage() {
             value={notes.length > 0 ? formatSize(totalSize) : "\u2014"}
             label="total size"
           />
-          <div className="flex items-center justify-center rounded-md border border-border p-4">
+          <div className="flex items-center justify-center rounded-none border border-border p-4">
             <Link to="/new">
               <Button variant="outline" className="gap-2">
                 <PlusIcon className="size-4" />
@@ -68,7 +68,7 @@ function IndexPage() {
             ))}
           </div>
         ) : notes.length === 0 ? (
-          <div className="flex flex-col items-center justify-center rounded-md border border-dashed border-border py-16">
+          <div className="flex flex-col items-center justify-center rounded-none border border-dashed border-border py-16">
             <FileTextIcon className="mb-3 size-8 text-muted-foreground" />
             <p className="text-sm text-muted-foreground">no notes yet</p>
             <Link to="/new" className="mt-4">
@@ -85,7 +85,7 @@ function IndexPage() {
                 key={note.id}
                 type="button"
                 onClick={() => navigate({ to: `/${note.path}` })}
-                className="group block w-full rounded-md border border-border p-3 text-left transition-colors hover:bg-muted"
+                className="group block w-full rounded-none border border-border p-3 text-left transition-colors hover:bg-muted"
               >
                 <p className="text-sm font-medium group-hover:text-primary">{note.path}</p>
                 {note.contentPreview && (
