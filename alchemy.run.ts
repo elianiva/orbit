@@ -35,21 +35,26 @@ const BypassShare = Cloudflare.Access.Policy("BypassShare", {
   include: [{ everyone: {} }],
 });
 
-export class Website extends Cloudflare.Website.Vite<Website>()("Website", {
-  compatibility: {
-    flags: ["nodejs_compat"],
-  },
-  domain: "orbit.elianiva.com",
-  assets: {
-    runWorkerFirst: false,
-  },
-  env: {
-    ORBIT_DB: DB,
-    ORBIT_STORAGE: Bucket,
-    VECTORIZE_INDEX: VectorizeIndex,
-    AI: Gate,
-  },
-}) {}
+const WebsiteProps = Effect.gen(function* () {
+  const stage = yield* Alchemy.Stage;
+  return {
+    compatibility: {
+      flags: ["nodejs_compat"],
+    },
+    ...(stage === "production" ? { domain: "orbit.elianiva.com" } : {}),
+    assets: {
+      runWorkerFirst: false,
+    },
+    env: {
+      ORBIT_DB: DB,
+      ORBIT_STORAGE: Bucket,
+      VECTORIZE_INDEX: VectorizeIndex,
+      AI: Gate,
+    },
+  };
+});
+
+export class Website extends Cloudflare.Website.Vite<Website>()("Website", WebsiteProps) {}
 
 export type WebsiteEnv = Cloudflare.InferEnv<typeof Website>;
 
