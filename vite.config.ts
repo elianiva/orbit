@@ -30,9 +30,37 @@ const config = defineConfig({
     // Bundle packages that don't have react as a peer dependency
     // into the rsc environment so they resolve at runtime in Workers.
     {
-      name: "orbit:rsc-noexternal",
+      name: "orbit:rsc-deps",
       configEnvironment(name, options) {
+        // Both rsc and ssr server environments need cloudflare:*
+        // builtins externalized for rolldown resolution.
+        if (name !== "rsc" && name !== "ssr") return;
+
+        // Externalize Cloudflare Workers built-in modules.
+        // rolldown needs them in build.rolldownOptions.external
+        // otherwise it errors on resolution.
+        const cfBuiltins = [
+          "cloudflare:email",
+          "cloudflare:node",
+          "cloudflare:sockets",
+          "cloudflare:workers",
+          "cloudflare:workflows",
+        ];
+        const ro = (options.build ??= {}).rolldownOptions ??= {};
+        const ext = (ro as Record<string, unknown>).external;
+        if (Array.isArray(ext)) {
+          for (const m of cfBuiltins) {
+            if (!ext.includes(m)) (ext as (string | RegExp)[]).push(m);
+          }
+        } else if (ext == null) {
+          (ro as Record<string, unknown>).external = cfBuiltins;
+        }
+
+        // Only rsc needs extra noExternal for non-react-peer-deps
         if (name !== "rsc") return;
+
+        // Bundle packages that don't have react as a peer dependency
+        // so they resolve at runtime in Workers.
         const pkgs = [
           "effect",
           "drizzle-orm",
